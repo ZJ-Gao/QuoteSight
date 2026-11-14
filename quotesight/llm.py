@@ -37,8 +37,9 @@ SELECT_SCHEMA = {
             "type": "object", "additionalProperties": False,
             "properties": {"chunk_id": {"type": "integer"}, "quote": {"type": "string"},
                            "stance": {"type": "string", "enum": ["support", "refute", "context"]},
-                           "note": {"type": "string"}},
-            "required": ["chunk_id", "quote", "stance", "note"]}},
+                           "note": {"type": "string"},
+                           "relevance": {"type": "string", "enum": ["high", "medium", "low"]}},
+            "required": ["chunk_id", "quote", "stance", "note", "relevance"]}},
     },
     "required": ["summary", "findings"],
 }
@@ -89,10 +90,10 @@ class Usage:
         return sum(self.tokens.values())
 
 
-def call_claude(system, user, schema, usage, emit):
+def call_claude(system, user, schema, usage, emit, model=None):
     cfg = config.get()["llm"]
     exe = _exe("claude")
-    cmd = [exe, "-p", "--model", cfg["claude_model"], "--effort", cfg["claude_effort"],
+    cmd = [exe, "-p", "--model", model or cfg["claude_model"], "--effort", cfg["claude_effort"],
            "--output-format", "stream-json", "--verbose", "--system-prompt", system, "--tools", "",
            "--strict-mcp-config", "--disable-slash-commands", "--setting-sources", "", "--no-session-persistence"]
     if not _windows_script(exe):
@@ -131,7 +132,7 @@ def call_claude(system, user, schema, usage, emit):
     return result.get("structured_output") or _json_from_text(result.get("result"))
 
 
-def call_codex(system, user, schema, usage, emit):
+def call_codex(system, user, schema, usage, emit, model=None):
     cfg = config.get()["llm"]
     exe = _exe("codex")
     with tempfile.TemporaryDirectory() as tmp:
@@ -139,8 +140,8 @@ def call_codex(system, user, schema, usage, emit):
         sp.write_text(json.dumps(schema), encoding="utf-8")
         cmd = [exe, "exec", "--json", "--output-schema", str(sp), "--sandbox", "read-only", "--skip-git-repo-check",
                "-c", f'model_reasoning_effort="{cfg["codex_effort"]}"']
-        if cfg["codex_model"]:
-            cmd += ["--model", cfg["codex_model"]]
+        if model or cfg["codex_model"]:
+            cmd += ["--model", model or cfg["codex_model"]]
         cmd.append("-")
         proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 text=True, encoding="utf-8", errors="replace", cwd=tmp)
@@ -174,12 +175,34 @@ BACKENDS = {"claude": call_claude, "codex": call_codex}
 LABELS = {"claude": "Claude", "codex": "Codex"}
 
 
+_CITE = re.compile(r"^\d{1,3}(?:\s*[,–-]\s*\d{1,3})*$")
+_UNIT = re.compile(r"(?:^|[^A-Za-z])(?:k?m|cm|mm|s|yr|ka|Ma|g|kg|L|ha)\s?$")
+
+
+def strip_cites(s):
+    """Drop superscript citation numbers (landslides<sup>3,55–57</sup>) but keep isotopes
+    (<sup>10</sup>Be), exponents (s<sup>–1</sup>) and units (km<sup>2</sup>)."""
+    s = s or ""
+
+    def sup(m):
+        x, before = m.group(1).strip(), s[max(0, m.start() - 4):m.start()]
+        if not _CITE.match(x) or _UNIT.search(before) or not re.search(r"[A-Za-z.,;:)\]]$", before):
+            return m.group(0)
+        return ""
+    s = re.sub(r"<sup>([^<]*)</sup>(?![A-Za-z])", sup, s)
+    return re.sub(r"([a-z)])(\d{1,3}(?:[,–]\d{1,3})+)(?=[\s.,;:)]|$)", r"\1", s)
+
+
 def _norm(s):
-    return re.sub(r"[^a-z0-9]", "", s.lower())
+    return re.sub(r"[^a-z0-9]", "", re.sub(r"</?su[pb]>", "", s.lower()))
 
 
 def verify(quote, text):
-    """True if the quote appears in the passage, ignoring spacing and punctuation."""
+    """True if the quote appears in the passage, ignoring spacing, punctuation and citation numbers."""
+    return _match(quote, text) or _match(strip_cites(quote), strip_cites(text))
+
+
+def _match(quote, text):
     q, t = _norm(quote), _norm(text)
     if not q:
         return False
@@ -189,7 +212,17 @@ def verify(quote, text):
     return sum(p in t for p in pieces) >= 0.8 * len(pieces)
 
 
-def run(text, backend=None, on_event=None, language=None):
+# Two depths: "standard" (~30 s) and "broad" (~60 s: more queries for a topic, more passages, and sentences from
+# papers that only mention the topic in passing are kept as "low" relevance instead of dropped).
+DEPTH = {
+    "standard": {"n_queries": "2 to 4", "max_queries": 4, "passages_key": "max_passages",
+                 "keep_rule": "Drop passages that only share the topic or the words."},
+    "broad": {"n_queries": "3 or 4 for a claim, 5 or 6 for a topic", "max_queries": 6, "passages_key": "max_passages_broad",
+              "keep_rule": "Also keep sentences from papers whose main subject is something else but that say something specific about the input (a value, a case, a comparison, a stated mechanism); mark these \"low\" rather than dropping them. Drop passages that only share the words."},
+}
+
+
+def run(text, backend=None, on_event=None, language=None, max_findings=20, depth="standard"):
     cfg = config.get()
     language = language or cfg["llm"]["language"]
     backend = backend or cfg["llm"]["backend"]
@@ -201,26 +234,29 @@ def run(text, backend=None, on_event=None, language=None):
     t0 = time.time()
     try:
         emit({"kind": "status", "text": "planning queries"})
-        plan = call(prompt("plan", language=language), "Input: " + text, PLAN_SCHEMA, usage, emit) or {}
-        queries = [q for q in plan.get("queries", []) if q.strip()][:4] or [text]
+        D = DEPTH.get(depth, DEPTH["standard"])
+        plan = call(prompt("plan", language=language, n_queries=D["n_queries"]), "Input: " + text, PLAN_SCHEMA, usage, emit) or {}
+        queries = [q for q in plan.get("queries", []) if q.strip()][:D["max_queries"]] or [text]
         kind = plan.get("kind", "claim")
         for q in queries:
             emit({"kind": "query", "text": q})
 
         emit({"kind": "status", "text": f"searching ({len(queries)} queries)"})
         seen, passages = set(), []
-        per = max(6, cfg["llm"]["max_passages"] // len(queries))
+        budget = cfg["llm"].get(D["passages_key"]) or cfg["llm"]["max_passages"]
+        per = max(6, budget // len(queries))
         for q in queries + [text]:
-            for r in core.search(q, limit=per)["results"]:
+            for r in core.search(q, limit=per, max_per_paper=2)["results"]:
                 if r["chunk_id"] not in seen:
                     seen.add(r["chunk_id"])
                     passages.append(r)
-        passages = passages[: cfg["llm"]["max_passages"]]
+        passages = passages[:budget]
         block = "\n\n".join(f"[#{r['chunk_id']}] {r['paper']['file']} | {r['paper']['folder']} | p.{r['page']}\n"
                             f"{r['passage']}" for r in passages)
 
         emit({"kind": "status", "text": f"reading {len(passages)} passages"})
-        out = call(prompt("select", kind=kind, language=language), f"Input: {text}\n\nPassages:\n\n{block}", SELECT_SCHEMA, usage, emit)
+        max_findings = max(1, min(int(max_findings or 20), 20))
+        out = call(prompt("select", kind=kind, language=language, max_findings=max_findings, keep_rule=D["keep_rule"]), f"Input: {text}\n\nPassages:\n\n{block}", SELECT_SCHEMA, usage, emit)
         if not out:
             raise RuntimeError("could not parse the model's answer")
     except Exception as e:
@@ -233,10 +269,11 @@ def run(text, backend=None, on_event=None, language=None):
         row = con.execute(core.PAPER_SQL + "WHERE c.id=?", (f.get("chunk_id"),)).fetchone()
         if row:
             findings.append({"chunk_id": row["id"], "page": row["page"], "quote": f["quote"], "stance": f["stance"],
-                             "note": f.get("note", ""), "verified": verify(f["quote"], row["text"]),
+                             "note": f.get("note", ""), "relevance": f.get("relevance", "medium"),
+                             "verified": verify(f["quote"], row["text"]),
                              "passage": row["text"], "paper": core.paper_info(row)})
     res = {"ok": True, "claim": text, "kind": kind, "backend": backend, "model_name": usage.model,
-           "effort": cfg["llm"].get(f"{backend}_effort"), "summary": out.get("summary", ""), "queries": queries,
+           "effort": cfg["llm"].get(f"{backend}_effort"), "depth": depth, "summary": out.get("summary", ""), "queries": queries,
            "findings": findings, "n_passages": len(passages), "tokens": dict(usage.tokens, total=usage.total()),
            "cost_usd_list_price": round(usage.cost, 4), "limits": usage.limits,
            "seconds": round(time.time() - t0, 1), "time": time.time()}
@@ -246,25 +283,49 @@ def run(text, backend=None, on_event=None, language=None):
     return res
 
 
-def list_history():
+def _hist_sub(name):
+    d = history_dir() / name  # "archive": topics not active now; "trash": deleted searches, recoverable by hand
+    d.mkdir(exist_ok=True)
+    return d
+
+
+def list_history(archived=False):
     out = []
-    for p in sorted(history_dir().glob("*.json"), reverse=True):
+    for p in sorted((_hist_sub("archive") if archived else history_dir()).glob("*.json"), reverse=True):
         try:
             d = json.loads(p.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
         out.append({"id": p.stem, "claim": d.get("claim"), "model": d.get("model_name") or d.get("backend"),
                     "n": len(d.get("findings", [])), "tokens": (d.get("tokens") or {}).get("total"), "time": d.get("time"),
+                    "archived": archived,
                     "text": " ".join([d.get("summary", "")] + [f.get("quote", "") + " " + f["paper"].get("file", "")
                                                               for f in d.get("findings", [])])})
     return out
 
 
-def load_history(hid):
+def _hist_path(hid):
     if not re.fullmatch(r"[0-9-]+", hid):
         return None
-    p = history_dir() / f"{hid}.json"
-    if not p.is_file():
+    for d in (history_dir(), _hist_sub("archive")):
+        if (d / f"{hid}.json").is_file():
+            return d / f"{hid}.json"
+    return None
+
+
+def move_history(hid, action):
+    """action: 'archive', 'unarchive' or 'delete' (moved to history/trash, recoverable by hand)."""
+    p = _hist_path(hid)
+    dest = {"archive": _hist_sub("archive"), "unarchive": history_dir(), "delete": _hist_sub("trash")}.get(action)
+    if not p or dest is None:
+        return False
+    p.replace(dest / p.name)
+    return True
+
+
+def load_history(hid):
+    p = _hist_path(hid)
+    if not p:
         return None
     d = json.loads(p.read_text(encoding="utf-8"))
     con = core.connect()

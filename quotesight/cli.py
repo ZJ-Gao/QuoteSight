@@ -29,7 +29,11 @@ def main_search(argv=None):
     ap.add_argument("-c", "--compact", action="store_true",
                     help="compact text for agents: [#chunk_id] file | topic | p.N, then the passage")
     ap.add_argument("-t", "--text", action="store_true", help="human-readable output")
+    ap.add_argument("--per-paper", type=int, default=None, metavar="N",
+                    help="passage mode: at most N passages from one paper (spreads results over more papers)")
     ap.add_argument("--ask", action="store_true", help="use the configured LLM to pick verbatim evidence")
+    ap.add_argument("--broad", action="store_true",
+                    help="with --ask: broad search (more queries and passages, about twice the time and tokens)")
     _common(ap)
     a = ap.parse_args(argv)
     config.get(a.config)
@@ -39,17 +43,18 @@ def main_search(argv=None):
     if a.ask:
         from . import llm
         res = llm.run(q, on_event=lambda e: print(f"[{e['kind']}] {e.get('text', '')}", file=sys.stderr)
-                      if e["kind"] in ("status", "query") else None)
+                      if e["kind"] in ("status", "query") else None, depth="broad" if a.broad else "standard")
         if a.text and res.get("ok"):
             _out(res["summary"] + "\n")
             for f in res["findings"]:
-                _out(f"[{f['stance']}] {f['paper']['file']} p.{f['page']}{'' if f['verified'] else ' (unverified)'}\n"
+                _out(f"[{f['stance']}, {f.get('relevance', '')}] {f['paper']['file']} p.{f['page']}{'' if f['verified'] else ' (unverified)'}\n"
                      f"  \"{f['quote']}\"\n  {f['note']}\n")
             _out(f"tokens: {res['tokens']['total']}  time: {res['seconds']} s")
         else:
             _out(json.dumps(res, ensure_ascii=False, indent=1))
         return
-    res = core.search(q, limit=a.limit, by_paper=a.by_paper, folder=a.folder, include_refs=a.refs, mode=a.mode)
+    res = core.search(q, limit=a.limit, by_paper=a.by_paper, folder=a.folder, include_refs=a.refs, mode=a.mode,
+                      max_per_paper=a.per_paper)
     if a.compact:
         for r in res["results"]:
             p = r["paper"]

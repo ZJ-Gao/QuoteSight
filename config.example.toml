@@ -37,13 +37,19 @@ mailto = ""
 backend = "claude"
 # Language of the LLM's notes and summary. Quotes always stay in the original language.
 language = "English"
-# Passages handed to the LLM per search (about 500 tokens each).
-max_passages = 30
+# Passages handed to the LLM per search (about 500 tokens each). The board caps the result at 20 quotes.
+max_passages = 45
+# Passages for the "broad" search (about 60 s): more papers, about twice the tokens.
+max_passages_broad = 75
 claude_model = "sonnet"
 claude_effort = "medium"
+# Model for vocabulary lookups (one short call per word).
+claude_vocab_model = "haiku"
 # Empty uses the Codex CLI default model.
 codex_model = ""
 codex_effort = "medium"
+# Empty uses codex_model.
+codex_vocab_model = ""
 
 [app]
 host = "127.0.0.1"

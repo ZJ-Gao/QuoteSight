@@ -39,11 +39,14 @@ DEFAULTS = {
     "llm": {
         "backend": "claude",
         "language": "English",
-        "max_passages": 30,
+        "max_passages": 45,
+        "max_passages_broad": 75,
         "claude_model": "sonnet",
         "claude_effort": "medium",
+        "claude_vocab_model": "haiku",
         "codex_model": "",
         "codex_effort": "medium",
+        "codex_vocab_model": "",
     },
     "app": {
         "host": "127.0.0.1",

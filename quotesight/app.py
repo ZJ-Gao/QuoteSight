@@ -37,6 +37,15 @@ def index():
     return (HERE / "static" / "index.html").read_text(encoding="utf-8")
 
 
+@app.get("/{name}", include_in_schema=False)
+def icon(name: str):
+    files = {"favicon.ico": "favicon.png", "favicon.png": "favicon.png", "favicon.svg": "favicon.svg",
+             "apple-touch-icon.png": "apple-touch-icon.png"}
+    if name not in files:
+        raise HTTPException(404)
+    return FileResponse(HERE / "static" / files[name])
+
+
 @app.get("/api/config")
 def api_config():
     cfg = config.get()
@@ -51,7 +60,12 @@ def api_config():
 def api_ask(body: dict):
     q = (body.get("q") or "").strip()
     backend = body.get("backend") or config.get()["llm"]["backend"]
+    depth = "broad" if body.get("depth") == "broad" else "standard"
     language = {"zh": "Chinese", "en": "English"}.get(body.get("lang"))
+    try:
+        max_findings = max(1, min(int(body.get("max") or 20), 20))
+    except (TypeError, ValueError):
+        max_findings = 20
     if not q:
         raise HTTPException(400)
     jid = str(len(asks) + 1)
@@ -72,7 +86,7 @@ def api_ask(body: dict):
     def go():
         with llm_lock:
             try:
-                res = llm.run(q, backend=backend, on_event=on_event, language=language)
+                res = llm.run(q, backend=backend, on_event=on_event, language=language, max_findings=max_findings, depth=depth)
             except Exception as ex:
                 res = {"ok": False, "error": str(ex)}
             j["result"] = res
@@ -115,8 +129,59 @@ def api_fast(q: str, folder: str = ""):
 
 
 @app.get("/api/history")
-def api_history():
-    return llm.list_history()
+def api_history(archived: bool = False):
+    return llm.list_history(archived)
+
+
+@app.post("/api/history/{hid}/{action}")
+def api_history_move(hid: str, action: str):
+    if action not in ("archive", "unarchive", "delete") or not llm.move_history(hid, action):
+        raise HTTPException(404)
+    return {"ok": True}
+
+
+@app.post("/api/vocab")
+def api_vocab_add(body: dict):
+    from . import vocab
+    language = {"zh": "Chinese", "en": "English"}.get(body.get("lang"))
+    try:
+        with llm_lock:
+            e = vocab.add(body.get("word"), body.get("context"), body.get("paper_id"), body.get("page"), language=language)
+    except Exception as ex:
+        return {"ok": False, "error": str(ex)}
+    if not e.get("duplicate"):
+        hud["app_tokens"] += e.get("tokens", 0)
+    return {"ok": True, "entry": e}
+
+
+@app.get("/api/vocab")
+def api_vocab_list():
+    from . import vocab
+    return list(reversed(vocab.load()))
+
+
+@app.get("/api/marks")
+def api_marks():
+    from . import marks
+    return marks.list_marks()
+
+
+@app.post("/api/marks")
+def api_marks_add(body: dict):
+    from . import marks
+    try:
+        return {"ok": True, "mark": marks.add(body.get("paper_id"), body.get("page"), body.get("text"), body.get("stance"))}
+    except (ValueError, TypeError) as ex:
+        return {"ok": False, "error": str(ex)}
+
+
+@app.post("/api/marks/{mid}/{action}")
+def api_marks_change(mid: str, action: str, stance: str = ""):
+    from . import marks
+    ok = marks.delete(mid) if action == "delete" else marks.update(mid, stance) if action == "stance" else False
+    if not ok:
+        raise HTTPException(404)
+    return {"ok": True}
 
 
 @app.get("/api/history/{hid}")

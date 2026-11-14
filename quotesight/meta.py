@@ -4,6 +4,7 @@ A DOI is taken from the first two pages; otherwise Crossref is searched with the
 year plus the opening text. A Crossref record is accepted only if its title appears in the first pages.
 Stored in the `meta` table keyed by PDF path, so re-indexing text does not lose it.
 """
+import html
 import json
 import re
 import ssl
@@ -48,10 +49,32 @@ def _get(url):
     return None
 
 
+_SUP = str.maketrans("0123456789+-‐−", "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁻⁻")
+_SUB = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
+
+
+def clean_title(t):
+    """Crossref titles carry JATS markup and HTML entities: '&gt;', '<scp>CT</scp>', 'δ <sup>18</sup> O'."""
+    t = html.unescape(t or "")
+
+    def script(m):
+        prev, tag, body = m.group(1), m.group(2), m.group(3).strip()
+        mapped = body.translate(_SUP if tag == "sup" else _SUB)
+        if any(c in "0123456789+-‐−" for c in mapped):  # not fully mappable: keep plain text
+            mapped = body
+        join = len(re.sub(r"\W", "", prev)) <= 2  # 'δ¹⁸O', 'km³', '¹⁰Be'; but 'from ¹⁰Be'
+        return prev + ("" if join else " ") + mapped
+    t = re.sub(r"(\S*)\s*<(sup|sub)>(.*?)</\2>\s*", script, t, flags=re.S)
+    t = re.sub(r"<[^>]+>", "", t)
+    t = re.sub(r"\s+", " ", t)
+    t = re.sub(r"\(\s+", "(", re.sub(r"\s+([),.:;])", r"\1", t))
+    return t.strip()
+
+
 def _record(msg):
     if not msg:
         return None
-    title = " ".join(msg.get("title") or []).strip()
+    title = clean_title(" ".join(msg.get("title") or []))
     authors = []
     for a in msg.get("author") or []:
         fam = a.get("family") or a.get("name") or ""
@@ -120,6 +143,9 @@ def first_text(con, pid):
 
 def update_meta(force=False, log=print, workers=4):
     con = core.connect()
+    for path, title in con.execute("SELECT path, title FROM meta WHERE title LIKE '%<%' OR title LIKE '%&%;%'").fetchall():
+        con.execute("UPDATE meta SET title=? WHERE path=?", (clean_title(title), path))  # titles stored before cleaning
+    con.commit()
     done = {r[0] for r in con.execute("SELECT path FROM meta")}
     rows = con.execute("SELECT id, path, filename FROM papers WHERE status='ok'").fetchall()
     todo = [r for r in rows if force or r["path"] not in done]

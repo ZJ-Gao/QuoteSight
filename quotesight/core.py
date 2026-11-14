@@ -448,13 +448,15 @@ def paper_info(r, dups=None):
     return info
 
 
-def search(query, limit=10, by_paper=False, folder=None, include_refs=False, per_paper=3, mode="hybrid"):
-    """mode: hybrid (default), keyword or vector. Hybrid merges both rankings by reciprocal rank fusion."""
+def search(query, limit=10, by_paper=False, folder=None, include_refs=False, per_paper=3, mode="hybrid", max_per_paper=None):
+    """mode: hybrid (default), keyword or vector. Hybrid merges both rankings by reciprocal rank fusion.
+    max_per_paper (passage mode only): keep at most this many passages from one paper, so a few papers
+    with many matching passages do not crowd out the rest."""
     con = connect()
     match, terms = build_match(query)
     if mode != "keyword" and con.execute("SELECT 1 FROM vecs LIMIT 1").fetchone() is None:
         mode = "keyword"
-    pool = max(100, limit * (10 if by_paper else 3))
+    pool = max(100, limit * (10 if by_paper or max_per_paper else 3))
     kw = keyword_hits(con, match, pool, folder, include_refs) if match and mode != "vector" else []
     vec = vector_hits(con, query, pool, folder, include_refs) if mode != "keyword" else []
 
@@ -482,6 +484,14 @@ def search(query, limit=10, by_paper=False, folder=None, include_refs=False, per
                 "highlighted": highlight(r["text"], terms)}
 
     if not by_paper:
+        if max_per_paper:
+            seen, kept = {}, []
+            for cid, e in order:
+                pid = rows[cid]["pid"]
+                if seen.get(pid, 0) < max_per_paper:
+                    seen[pid] = seen.get(pid, 0) + 1
+                    kept.append((cid, e))
+            order = kept
         return {"query": query, "mode": mode, "terms": terms, "results": [
             dict(rank=i + 1, paper=paper_info(rows[cid], dups), **passage(cid, e))
             for i, (cid, e) in enumerate(order[:limit])]}

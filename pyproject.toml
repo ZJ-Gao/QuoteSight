@@ -32,4 +32,4 @@ quotesight-app = "quotesight.cli:main_app"
 packages = ["quotesight"]
 
 [tool.setuptools.package-data]
-quotesight = ["static/*.html", "prompts/*.md"]
+quotesight = ["static/*.html", "static/*.png", "static/*.svg", "prompts/*.md"]
