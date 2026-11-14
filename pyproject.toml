@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quotesight"
+version = "0.1.0"
+description = "Local full-text and semantic search over a PDF library, with an evidence board and optional LLM (Claude Code or Codex) and Obsidian integration."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = [
+  "pdf-inspector>=1.25",
+  "numpy",
+  "torch",
+  # nomic-embed-text-v1.5 ships remote code that breaks with transformers 5.x; keep these pins.
+  "transformers==4.48.3",
+  "sentence-transformers==3.4.1",
+  "einops",
+  "fastapi",
+  "uvicorn",
+  "certifi",
+  "tomli; python_version < '3.11'",
+]
+
+[project.scripts]
+quotesight-search = "quotesight.cli:main_search"
+quotesight = "quotesight.cli:main_index"
+quotesight-app = "quotesight.cli:main_app"
+
+[tool.setuptools]
+packages = ["quotesight"]
+
+[tool.setuptools.package-data]
+quotesight = ["static/*.html", "prompts/*.md"]

@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuoteSight</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root {
+  --bg: #f7f6f3; --panel: #ffffff; --ink: #1f2328; --muted: #6b7078; --line: #e3e1dc;
+  --accent: #2f6f8f; --accent-soft: #dcebf2; --chip: #eeece7; --sel: #eef5f8;
+  --sup: #2e7d4f; --sup-bg: #e2f2e8; --ref: #b3412f; --ref-bg: #f8e3df; --ctx: #7a6a1f; --ctx-bg: #f4eed3;
+  --hl: rgba(255, 140, 0, .42);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17191c; --panel: #1f2226; --ink: #e6e6e3; --muted: #9aa0a6; --line: #30343a;
+    --accent: #7fb8d4; --accent-soft: #23343d; --chip: #2a2e33; --sel: #23303a;
+    --sup: #7fcf9c; --sup-bg: #1e3327; --ref: #f0937f; --ref-bg: #3a221e; --ctx: #d9c66e; --ctx-bg: #35301a;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17191c; --panel: #1f2226; --ink: #e6e6e3; --muted: #9aa0a6; --line: #30343a;
+  --accent: #7fb8d4; --accent-soft: #23343d; --chip: #2a2e33; --sel: #23303a;
+  --sup: #7fcf9c; --sup-bg: #1e3327; --ref: #f0937f; --ref-bg: #3a221e; --ctx: #d9c66e; --ctx-bg: #35301a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.5 -apple-system, "Helvetica Neue", "PingFang SC", sans-serif; display: flex; flex-direction: column; }
+header { display: flex; gap: 8px; padding: 10px 16px; background: var(--panel); flex-wrap: wrap; align-items: center; }
+header input[type=text] { flex: 1 1 360px; min-width: 0; padding: 9px 12px; font-size: 15px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
+header input[type=text]:focus { outline: 2px solid var(--accent); border-color: transparent; }
+select, button { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); font-size: 13px; cursor: pointer; }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button:disabled { opacity: .5; cursor: default; }
+
+#hud { background: #111315; color: #d7d7d2; font: 13px/1.55 "SF Mono", Menlo, Monaco, monospace; padding: 6px 16px; border-top: 1px solid #000; border-bottom: 1px solid #000; }
+#hud .row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; white-space: nowrap; }
+#hud .cyan { color: #4fb6c4; } #hud .yellow { color: #e5c07b; } #hud .green { color: #7ec16e; } #hud .dim { color: #8a8f94; }
+#hud .sep { color: #5c6166; margin: 0 4px; }
+.tbar { position: relative; display: inline-block; width: 150px; height: 14px; overflow: hidden;
+  background-image: radial-gradient(#3a3f44 1px, transparent 1.2px); background-size: 3px 3px; }
+.tbar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: #79a5d6; }
+.tbar.warn i { background: #d9a03b; } .tbar.bad i { background: #d0584a; }
+#state { display: inline-flex; align-items: center; gap: 6px; color: #e5c07b; }
+.spin { width: 10px; height: 10px; border: 2px solid #3a3f44; border-top-color: #e5c07b; border-radius: 50%; animation: s 0.8s linear infinite; display: none; }
+.busy .spin { display: inline-block; }
+@keyframes s { to { transform: rotate(360deg); } }
+
+main { flex: 1; display: grid; grid-template-columns: var(--w1, 300px) 7px var(--w2, minmax(300px, 1fr)) 7px minmax(280px, 1.25fr); min-height: 0; }
+.gut { cursor: col-resize; background: var(--line); width: 1px; margin: 0 3px; position: relative; }
+.gut::after { content: ""; position: absolute; inset: 0 -4px; }
+.gut:hover, .gut.drag { background: var(--accent); width: 3px; margin: 0 2px; }
+body.dragging { cursor: col-resize; user-select: none; }
+body.dragging iframe, body.dragging canvas { pointer-events: none; }
+.col { overflow-y: auto; min-height: 0; }
+#c1 { padding: 10px; }
+#c2 { padding: 14px 16px 40px; }
+#c3 { padding: 12px; background: var(--bg); }
+#hist { margin-bottom: 10px; font-size: 13px; }
+#htog { border: 0; background: none; padding: 4px 2px; color: var(--muted); font-size: 13px; }
+#htog:hover { color: var(--ink); }
+#hq { width: 100%; margin: 6px 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font-size: 12.5px; }
+#hlist { max-height: 40vh; overflow-y: auto; }
+#hbody { background: var(--chip); border-radius: 8px; padding: 6px; margin-bottom: 6px; }
+#hist + #c1b { border-top: 1px solid var(--line); padding-top: 8px; }
+.hi { padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.hi:hover { background: var(--panel); }
+.hi .c { font-size: 12.5px; line-height: 1.35; }
+.hi .m { font-size: 11px; color: var(--muted); }
+.textLayer span.hlp { position: static; background: var(--hl); border-radius: 2px; }
+.summary { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; font-size: 13px; }
+.summary .qs { margin-top: 6px; color: var(--muted); font-size: 12px; }
+.filters { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; }
+.filters button { padding: 3px 9px; font-size: 12px; border-radius: 12px; }
+.filters button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.card { padding: 9px 11px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; margin-bottom: 3px; }
+.card:hover { background: var(--panel); }
+.card.sel { background: var(--sel); border-color: var(--line); }
+.card .t { font-weight: 600; font-size: 13px; line-height: 1.35; }
+.card .f { color: var(--muted); font-size: 11.5px; margin-top: 2px; word-break: break-all; }
+.tags { display: flex; gap: 4px; margin-top: 5px; flex-wrap: wrap; align-items: center; }
+.tag { font-size: 11px; border-radius: 4px; padding: 0 6px; }
+.tag.support { background: var(--sup-bg); color: var(--sup); }
+.tag.refute { background: var(--ref-bg); color: var(--ref); }
+.tag.context { background: var(--ctx-bg); color: var(--ctx); }
+.tag.match, .tag.folder { background: var(--chip); color: var(--muted); }
+#c2 h2 { margin: 0 0 4px; font-size: 17px; line-height: 1.3; }
+.auth { font-size: 13px; margin-bottom: 2px; }
+.sub a { color: var(--accent); text-decoration: none; }
+.sub { color: var(--muted); font-size: 12px; margin-bottom: 10px; word-break: break-all; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.actions button { font-size: 12px; padding: 6px 10px; }
+.finding { border-left: 3px solid var(--line); padding: 4px 0 4px 12px; margin-bottom: 18px; cursor: pointer; }
+.finding.support { border-left-color: var(--sup); } .finding.refute { border-left-color: var(--ref); } .finding.context { border-left-color: var(--ctx); } .finding.match { border-left-color: var(--accent); }
+.finding.active .quote { background: var(--sel); }
+.finding .quote { font-size: 15px; line-height: 1.6; font-family: Georgia, "Times New Roman", serif; border-radius: 4px; padding: 2px 4px; margin: 0 -4px; }
+.finding .note { margin-top: 4px; font-size: 13px; color: var(--muted); }
+.finding .h { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.unver { color: #c0392b; font-size: 11px; }
+#pdfnav { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; font-size: 13px; }
+#pagewrap { position: relative; display: inline-block; box-shadow: 0 1px 6px rgba(0,0,0,.15); background: #fff; max-width: 100%; }
+#pagewrap canvas { display: block; }
+.textLayer { position: absolute; inset: 0; overflow: hidden; line-height: 1; text-align: initial; opacity: 1; }
+.textLayer span, .textLayer br { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
+.textLayer span.hl2 { background: var(--hl); border-radius: 2px; }
+.empty { color: var(--muted); padding: 30px 16px; text-align: center; }
+@media (max-width: 900px) {
+  .gut { display: none; }
+  main { display: block; overflow-y: auto; }
+  .col { overflow: visible; border-right: 0 !important; border-bottom: 1px solid var(--line); }
+}
+</style>
+</head>
+<body>
+<header>
+  <input id="q" type="text" placeholder="Type a claim or a topic and press Enter, e.g. hyperpycnal flows can feed deep-water fans" autofocus>
+  <select id="mode" title="How to search">
+    <option value="claude">Claude (precise, ~30 s)</option>
+    <option value="codex">Codex (precise, ~30 s)</option>
+    <option value="fast">Quick (no LLM, ~1 s)</option>
+  </select>
+  <button class="primary" id="go">Search</button>
+  <button id="upd" title="Add new or changed PDFs to the index">Update index</button>
+  <button id="lang" title="Language">EN</button>
+</header>
+<div id="hud">
+  <div class="row">
+    <span class="cyan">[<span id="h-model">…</span> | <span id="h-effort">…</span>]</span><span class="sep">|</span>
+    <span class="yellow">QuoteSight</span><span class="sep">|</span>
+    <span id="state"><span class="spin"></span><span id="stext">ready</span></span>
+  </div>
+  <div class="row">
+    <span class="dim">this search</span> <span class="green" id="h-tok">–</span><span class="dim"> tok ·</span> <span id="h-sec">–</span><span class="sep">|</span>
+    <span class="dim" title="Claude account, 5-hour window: share used (time to reset / window). Includes your other Claude use.">Usage</span>
+    <span class="tbar" id="m5"><i></i></span><span class="green" id="h5">–</span><span class="dim" id="r5"></span><span class="sep">|</span>
+    <span class="tbar" id="m7" title="Claude account, 7-day window"><i></i></span><span class="green" id="h7">–</span><span class="dim" id="r7"></span><span class="sep">|</span>
+    <span class="dim">session</span> <span id="h-app">0</span><span class="dim"> tok ·</span> <span id="h-n">0</span><span class="dim"> searches</span>
+  </div>
+</div>
+<main>
+  <div class="col" id="c1">
+    <div id="hist">
+      <button id="htog" type="button">▸ History <span id="hn"></span></button>
+      <div id="hbody" hidden>
+        <input id="hq" type="text" placeholder="Filter: claim, quote, file name">
+        <div id="hlist"></div>
+      </div>
+    </div>
+    <div id="c1b"><div class="empty">Type a claim or topic to start</div></div>
+  </div>
+  <div class="gut" data-g="1" title="drag to resize, double-click to reset"></div>
+  <div class="col" id="c2"><div class="empty">Pick a paper on the left to see its quotes</div></div>
+  <div class="gut" data-g="2" title="drag to resize, double-click to reset"></div>
+  <div class="col" id="c3"><div class="empty">Click a quote to see it highlighted on the PDF page</div></div>
+</main>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const $ = s => document.querySelector(s);
+const esc = s => (s || "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const short = f => (f || "").replace(/_reading_notes_and_lit\w*$/, "").replace(/_/g, " ");
+const authShort = a => { if (!a) return ""; const L = a.split("; ").map(x => x.split(",")[0]); return L.length === 1 ? L[0] : L.length === 2 ? L[0] + " and " + L[1] : L[0] + " et al."; };
+const authLong = a => { if (!a) return ""; const L = a.split("; "); return L.length > 6 ? L.slice(0, 6).join("; ") + "; et al." : L.join("; "); };
+const STANCE = {support: "supports", refute: "refutes", context: "context", match: "match"};
+const SL = k => t(STANCE[k]);
+const ZH = {
+  "supports": "支持", "refutes": "反驳", "context": "背景", "match": "相关", "all": "全部",
+  "no LLM": "不用大模型", "quick": "快速", "default": "默认",
+  "opened from history (no tokens used)": "已打开历史记录（未消耗额度）",
+  "quotes": "句", "searching…": "搜索中…", "quick search…": "快速检索中…", "done (quick mode, no LLM)": "完成（快速模式，没有用大模型）",
+  "starting": "启动", "Searching:": "正在检索：", "error": "出错", "Error: ": "出错：",
+  "No passage bears directly on this input": "没有找到直接相关的原文", "Queries: ": "检索：",
+  "Obsidian note": "Obsidian 笔记", "no note": "没有笔记", "No note links to this PDF": "没有笔记链接到这个 PDF",
+  "Obsidian PDF": "Obsidian PDF", "Open PDF": "打开 PDF", "PDF in browser": "浏览器里看 PDF",
+  "unverified": "未核验", "This quote was not found word for word in the passage; check it": "这句没能在原文里逐字找到，请核对",
+  "‹ prev": "‹ 上一页", "next ›": "下一页 ›", "loading PDF…": "加载 PDF…", "page": "第", "of": "/",
+  "the text layer of this page could not be matched, so nothing is highlighted": "这页 PDF 的文字层无法对齐，没能高亮",
+  "updating index: ": "更新索引：", "update failed: ": "更新出错：", "index updated": "索引已更新", "indexed": "篇新处理", "removed": "篇移除",
+  "done": "完成", "quotes from": "句原文，来自", "passages": "段",
+  "at API prices (subscriptions are not billed per call)": "（按 API 价折算，订阅不另收费）",
+  "planning queries": "正在拆分查询", "searching": "正在检索", "reading": "正在阅读", "queued": "排队中",
+  "Type a claim or a topic and press Enter, e.g. hyperpycnal flows can feed deep-water fans": "写一个观点或话题，回车。例如：hyperpycnal flows can feed deep-water fans",
+  "How to search": "检索方式", "Claude (precise, ~30 s)": "Claude 精准（约 30 秒）", "Codex (precise, ~30 s)": "Codex 精准（约 30 秒）",
+  "Quick (no LLM, ~1 s)": "快速（不用大模型，约 1 秒）", "Search": "搜索", "Update index": "更新索引",
+  "Add new or changed PDFs to the index": "把新增或改动的 PDF 加进索引", "ready": "就绪", "this search": "本次",
+  "session": "累计", "searches": "次", "History": "历史", "Filter: claim, quote, file name": "搜索历史：观点、原句、文件名",
+  "Type a claim or topic to start": "写一个观点或话题开始搜索", "Pick a paper on the left to see its quotes": "左边选一篇文章，这里显示挑出的原句",
+  "Click a quote to see it highlighted on the PDF page": "点中间的原句，这里显示 PDF 原页并高亮",
+  "No saved searches": "没有记录", "drag to resize, double-click to reset": "拖动调整宽度，双击恢复",
+  "Claude account, 5-hour window: share used (time to reset / window). Includes your other Claude use.": "Claude 账户 5 小时窗口：已用比例（距重置 / 窗口长度），含你在别处使用 Claude 的用量",
+  "Claude account, 7-day window": "Claude 账户 7 天窗口", "Language": "语言",
+};
+let LANG = "en";
+const t = s => LANG === "zh" ? (ZH[s] ?? s) : s;
+const tStatus = s => LANG !== "zh" ? s : s.replace(/^(planning queries|searching|reading|queued)/, m => ZH[m]).replace(/\((\d+) queries\)/, "（$1 条）").replace(/(\d+) passages/, "$1 段");
+function translateStatic() {
+  const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n; (n = walk.nextNode());) {
+    if (n.parentElement.closest("script, #c1b, #c2, #c3, #hlist, #pg, #stext")) continue;
+    if (n.__en === undefined) n.__en = n.nodeValue;
+    const k = n.__en.trim();
+    if (k && ZH[k]) n.nodeValue = n.__en.replace(k, t(k));
+  }
+  document.querySelectorAll("[placeholder], [title]").forEach(e => {
+    for (const a of ["placeholder", "title"]) {
+      if (!e.hasAttribute(a)) continue;
+      e["__en_" + a] = e["__en_" + a] ?? e.getAttribute(a);
+      e.setAttribute(a, t(e["__en_" + a]));
+    }
+  });
+  $("#lang").textContent = LANG === "zh" ? "中英" : "EN";
+  document.documentElement.lang = LANG === "zh" ? "zh" : "en";
+}
+function setLang(l) {
+  LANG = l === "zh" ? "zh" : "en";
+  try { localStorage.setItem("quotesightLang", LANG); } catch (e) {}
+  translateStatic();
+  setModelLabel($("#mode").value);
+  if (typeof setHist === "function") setHist(!$("#hbody").hidden);
+  if (res) { renderList(); if (curPaper) selectPaper(papers.indexOf(curPaper)); }
+  renderHist();
+}
+
+const fmtK = n => n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n);
+const fmtT = s => { const d = new Date(s * 1000); return d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}) + (d.toDateString() !== new Date().toDateString() ? " " + (d.getMonth() + 1) + "/" + d.getDate() : ""); };
+const left = t => { let m = Math.max(0, Math.round((t * 1000 - Date.now()) / 60000)); const h = Math.floor(m / 60); return `${h}h ${m % 60}m`; };
+let lastHud = null;
+setInterval(() => lastHud && setHud(lastHud), 60000);
+let res = null, papers = [], filter = "all", curPaper = null, pdfDoc = null, pdfId = null, pdfLoading = null, task = null, seq = 0, pageNo = 1;
+
+function setHud(h) {
+  if (!h) return;
+  lastHud = h;
+  const L = h.limits || {};
+  for (const [k, id] of [["five_hour", "5"], ["seven_day", "7"]]) {
+    const w = L[k];
+    if (!w || w.used == null) continue;
+    const pct = Math.round(w.used * 100);
+    $("#h" + id).textContent = pct + "%";
+    const m = $("#m" + id);
+    m.querySelector("i").style.width = Math.min(100, pct) + "%";
+    m.className = "tbar" + (pct >= 90 ? " bad" : pct >= 70 ? " warn" : "");
+    $("#r" + id).textContent = w.resets_at ? ` (${left(w.resets_at)} / ${id === "5" ? "5h" : "7d"})` : "";
+  }
+  if (h.model_name) $("#h-model").textContent = h.model_name;
+  if (h.effort) $("#h-effort").textContent = h.effort;
+  $("#h-app").textContent = fmtK(h.app_tokens || 0);
+  $("#h-n").textContent = h.app_searches || 0;
+}
+let CFG = {obsidian: false, backend: "claude", models: {}, effort: null};
+function setModelLabel(b) {
+  $("#h-model").textContent = b === "fast" ? t("no LLM") : (b === "claude" ? "Claude " : "Codex ") + (CFG.models[b] || "");
+  $("#h-effort").textContent = b === "fast" ? t("quick") : (CFG.effort || t("default"));
+}
+fetch("/api/config").then(r => r.json()).then(c => {
+  CFG = c;
+  let l = c.ui_language;
+  try { l = localStorage.getItem("quotesightLang") || l; } catch (e) {}
+  setLang(l);
+  if (["claude", "codex"].includes(c.backend)) $("#mode").value = c.backend; else $("#mode").value = "fast";
+  setModelLabel($("#mode").value);
+  fetch("/api/hud").then(r => r.json()).then(setHud);
+});
+let hist = [];
+async function loadHist() {
+  hist = await fetch("/api/history").then(r => r.json());
+  $("#hn").textContent = hist.length ? `(${hist.length})` : "";
+  renderHist();
+}
+function renderHist() {
+  const q = $("#hq").value.trim().toLowerCase();
+  const rows = hist.filter(h => !q || (h.claim + " " + h.text).toLowerCase().includes(q));
+  $("#hlist").innerHTML = rows.map(h => `<div class="hi" data-id="${h.id}"><div class="c">${esc(h.claim)}</div>
+    <div class="m">${h.time ? new Date(h.time * 1000).toLocaleString([], {month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit"}) : esc(h.id)} · ${esc(h.model || "")} · ${h.n} ${t("quotes")} · ${fmtK(h.tokens || 0)} tok</div></div>`).join("") || '<div class="hi m">No saved searches</div>';
+  document.querySelectorAll(".hi[data-id]").forEach(e => e.onclick = async () => {
+    const d = await fetch("/api/history/" + e.dataset.id).then(r => r.json());
+    $("#q").value = d.claim; $("#c2").innerHTML = ""; $("#c3").innerHTML = ""; pdfId = null;
+    busy(false, t("opened from history (no tokens used)"));
+    setHist(false);
+    show(d);
+  });
+}
+$("#hq").oninput = renderHist;
+const setHist = open => { $("#hbody").hidden = !open; $("#htog").firstChild.textContent = (open ? "▾" : "▸") + " " + t("History") + " "; };
+$("#htog").onclick = () => setHist($("#hbody").hidden);
+loadHist();
+const busy = (on, text) => { $("#state").classList.toggle("busy", on); $("#stext").textContent = text; $("#go").disabled = on; };
+
+async function search() {
+  const q = $("#q").value.trim();
+  if (!q) return;
+  $("#c1b").innerHTML = '<div class="empty">' + t("searching…") + '</div>';
+  if (typeof setHist === "function") setHist(false);
+  $("#c2").innerHTML = ""; $("#c3").innerHTML = ""; pdfId = null;
+  $("#h-tok").textContent = "–"; $("#h-sec").textContent = "–";
+  const mode = $("#mode").value;
+  if (mode === "fast") {
+    busy(true, t("quick search…"));
+    const r = await fetch("/api/fast?" + new URLSearchParams({q})).then(r => r.json());
+    $("#h-sec").textContent = r.seconds + " s"; $("#h-tok").textContent = "0";
+    busy(false, t("done (quick mode, no LLM)"));
+    return show(r);
+  }
+  busy(true, t("starting") + " " + mode + "…");
+  const {id} = await fetch("/api/ask", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({q, backend: mode, lang: LANG})}).then(r => r.json());
+  const poll = async () => {
+    const j = await fetch("/api/ask/" + id).then(r => r.json());
+    setHud(j.hud);
+    $("#h-sec").textContent = j.elapsed + " s";
+    if (j.tokens) $("#h-tok").textContent = fmtK(Object.values(j.tokens).reduce((a, b) => a + b, 0));
+    if (j.running) {
+      busy(true, tStatus(j.status));
+      if (j.queries.length) $("#c1b").innerHTML = '<div class="summary"><b>' + t("Searching:") + '</b><div class="qs">' + j.queries.map(esc).join("<br>") + "</div></div>";
+      return setTimeout(poll, 1000);
+    }
+    const r = j.result || {};
+    if (!r.ok) { busy(false, t("error")); $("#c1b").innerHTML = '<div class="empty">' + t("Error: ") + esc(r.error || "") + "</div>"; return; }
+    $("#h-tok").textContent = fmtK(r.tokens.total);
+    $("#h-sec").textContent = r.seconds + " s";
+    busy(false, `${t("done")} · ${r.findings.length} ${t("quotes from")} ${r.n_passages} ${t("passages")}` + (r.cost_usd_list_price ? ` · ~$${r.cost_usd_list_price} ${t("at API prices (subscriptions are not billed per call)")}` : ""));
+    show(r);
+    loadHist();
+  };
+  poll();
+}
+
+function show(r) {
+  res = r;
+  const by = new Map();
+  for (const f of r.findings) {
+    const k = f.paper.id;
+    if (!by.has(k)) by.set(k, {paper: f.paper, findings: []});
+    by.get(k).findings.push(f);
+  }
+  papers = [...by.values()];
+  filter = "all";
+  renderList();
+  if (papers.length) selectPaper(0);
+  else $("#c2").innerHTML = '<div class="empty">' + t("No passage bears directly on this input") + '</div>';
+}
+
+function renderList() {
+  const counts = {all: papers.length, support: 0, refute: 0, context: 0};
+  papers.forEach(p => new Set(p.findings.map(f => f.stance)).forEach(s => counts[s] = (counts[s] || 0) + 1));
+  const fb = ["all", "support", "refute", "context"].filter(k => k === "all" || counts[k])
+    .map(k => `<button data-f="${k}" class="${filter === k ? "on" : ""}">${k === "all" ? t("all") : SL(k)} ${counts[k]}</button>`).join("");
+  const sum = res.summary ? `<div class="summary">${esc(res.summary)}<div class="qs">${t("Queries: ")}${res.queries.map(esc).join("; ")}</div></div>` : "";
+  const list = papers.map((p, i) => ({p, i})).filter(({p}) => filter === "all" || p.findings.some(f => f.stance === filter))
+    .map(({p, i}) => {
+      const st = [...new Set(p.findings.map(f => f.stance))];
+      return `<div class="card" data-i="${i}">
+        <div class="t">${esc(p.paper.title || p.paper.file)}</div>
+        <div class="f">${p.paper.authors ? esc(authShort(p.paper.authors)) + (p.paper.journal ? " · " + esc(p.paper.journal) : "") : esc(p.paper.file)}</div>
+        <div class="tags">${st.map(s => `<span class="tag ${s}">${SL(s)}</span>`).join("")}
+          <span class="tag folder">${esc(short(p.paper.folder))}</span>${p.paper.year ? `<span class="tag folder">${esc(p.paper.year)}</span>` : ""}</div>
+      </div>`;
+    }).join("");
+  $("#c1b").innerHTML = sum + (res.summary ? `<div class="filters">${fb}</div>` : "") + list;
+  document.querySelectorAll(".filters button").forEach(b => b.onclick = () => { filter = b.dataset.f; renderList(); });
+  document.querySelectorAll(".card").forEach(c => c.onclick = () => selectPaper(+c.dataset.i));
+  markSel();
+}
+const markSel = () => document.querySelectorAll(".card").forEach(c => c.classList.toggle("sel", papers[+c.dataset.i] === curPaper));
+
+function selectPaper(i) {
+  curPaper = papers[i];
+  markSel();
+  const p = curPaper.paper;
+  $("#c2").innerHTML = `
+    <h2>${esc(p.title || p.file)}</h2>
+    ${p.authors ? `<div class="auth">${esc(authLong(p.authors))}</div>` : ""}
+    <div class="sub">${p.journal ? "<i>" + esc(p.journal) + "</i> · " : ""}${p.year ? esc(p.year) + " · " : ""}${p.doi ? `<a href="https://doi.org/${esc(p.doi)}" target="_blank">doi:${esc(p.doi)}</a> · ` : ""}${esc(p.file)} · ${esc(short(p.folder))}</div>
+    <div class="actions">
+      ${CFG.obsidian ? (p.note ? `<button id="obs">${t("Obsidian note")}</button>` : `<button disabled title="${t("No note links to this PDF")}">${t("no note")}</button>`) + `<button id="obspdf">${t("Obsidian PDF")}</button>`
+        : `<button id="syspdf">${t("Open PDF")}</button><button id="tabpdf">${t("PDF in browser")}</button>`}
+    </div>
+    ${curPaper.findings.map((f, k) => `
+      <div class="finding ${f.stance}" data-k="${k}">
+        <div class="h"><span class="tag ${f.stance}">${SL(f.stance)}</span> p.${f.page}
+          ${f.verified ? "" : `<span class="unver" title="${t("This quote was not found word for word in the passage; check it")}">${t("unverified")}</span>`}</div>
+        <div class="quote">${esc(f.quote)}</div>
+        ${f.note ? `<div class="note">${esc(f.note)}</div>` : ""}
+      </div>`).join("")}`;
+  const obs = path => location.href = "obsidian://open?path=" + encodeURIComponent(path);
+  if (CFG.obsidian) {
+    if (p.note) $("#obs").onclick = () => obs(p.note);
+    $("#obspdf").onclick = () => obs(p.pdf);
+  } else {
+    $("#syspdf").onclick = () => fetch(`/api/open/${p.id}`, {method: "POST"});
+    $("#tabpdf").onclick = () => window.open(`/pdf/${p.id}#page=${curPaper.findings[0].page}`, "_blank");
+  }
+  document.querySelectorAll(".finding").forEach(e => e.onclick = () => showFinding(+e.dataset.k));
+  showFinding(0);
+}
+
+async function showFinding(k) {
+  const f = curPaper.findings[k];
+  document.querySelectorAll(".finding").forEach(e => e.classList.toggle("active", +e.dataset.k === k));
+  if (!$("#pagewrap")) {
+    $("#c3").innerHTML = `
+      <div id="pdfnav"><button id="prev">${t("‹ prev")}</button><span id="pg"></span><button id="next">${t("next ›")}</button></div>
+      <div id="pagewrap"><canvas></canvas><div class="textLayer"></div></div>`;
+    $("#prev").onclick = () => pdfDoc && pageNo > 1 && render(pageNo - 1, []);
+    $("#next").onclick = () => pdfDoc && pageNo < pdfDoc.numPages && render(pageNo + 1, []);
+  }
+  if (pdfId !== f.paper.id) {
+    $("#pg").textContent = t("loading PDF…");
+    pdfId = f.paper.id;
+    pdfLoading = pdfjsLib.getDocument(`/pdf/${f.paper.id}`).promise;
+  }
+  pdfDoc = await pdfLoading;
+  await render(f.page, [f.quote]);
+}
+
+const norm = s => s.normalize("NFKC").toLowerCase().replace(/[^a-z0-9]/g, "");
+function coverSpans(divs, targets, W = 24, step = 8) {
+  const owner = []; let str = "";
+  divs.forEach((d, i) => { const t = norm(d.textContent); str += t; for (let k = 0; k < t.length; k++) owner.push(i); });
+  const cov = new Uint8Array(str.length);
+  for (const target of targets) {
+    const t = norm(target), w = Math.min(W, t.length);
+    if (w < 12) continue;
+    const tmp = new Uint8Array(str.length);
+    const mark = piece => { for (let p = str.indexOf(piece); p !== -1; p = str.indexOf(piece, p + 1)) tmp.fill(1, p, p + w); };
+    for (let i = 0; i + w <= t.length; i += step) mark(t.substr(i, w));
+    mark(t.substr(t.length - w));
+    const minRun = Math.min(60, Math.floor(t.length * 0.8));
+    for (let a = 0; a < tmp.length;) {
+      if (!tmp[a]) { a++; continue; }
+      let b = a; while (b < tmp.length && tmp[b]) b++;
+      if (b - a >= minRun) cov.fill(1, a, b);
+      a = b;
+    }
+  }
+  const hit = new Uint32Array(divs.length), len = new Uint32Array(divs.length);
+  owner.forEach((o, k) => { len[o]++; hit[o] += cov[k]; });
+  return divs.map((d, i) => len[i] > 0 && hit[i] / len[i] >= 0.6);
+}
+
+function exactRange(divs, quote) {
+  const map = []; let str = "";
+  divs.forEach((d, i) => { const t = d.textContent; for (let k = 0; k < t.length; k++) for (const ch of norm(t[k])) { str += ch; map.push([i, k]); } });
+  const q = norm(quote);
+  if (q.length < 12) return null;
+  const at = str.indexOf(q);
+  if (at < 0) return null;
+  return {b: map[at], e: map[at + q.length - 1]};
+}
+function markRange(divs, r) {
+  let first = null;
+  for (let i = r.b[0]; i <= r.e[0]; i++) {
+    const d = divs[i], t = d.textContent;
+    const s0 = i === r.b[0] ? r.b[1] : 0, s1 = i === r.e[0] ? r.e[1] + 1 : t.length;
+    if (s0 === 0 && s1 >= t.length) d.classList.add("hl2");
+    else {
+      d.textContent = "";
+      d.append(t.slice(0, s0));
+      const m = document.createElement("span"); m.className = "hlp"; m.textContent = t.slice(s0, s1); d.append(m);
+      d.append(t.slice(s1));
+    }
+    first = first || d;
+  }
+  return first;
+}
+
+let lastQuotes = [];
+async function render(n, quotes) {
+  pageNo = n; lastQuotes = quotes;
+  const my = ++seq;
+  const pg = await pdfDoc.getPage(n);
+  if (my !== seq) return;
+  const wrap = $("#pagewrap");
+  const avail = Math.min($("#c3").clientWidth - 28, 1100);
+  const vp = pg.getViewport({scale: avail / pg.getViewport({scale: 1}).width});
+  const dpr = window.devicePixelRatio || 1;
+  const canvas = wrap.querySelector("canvas");
+  canvas.width = vp.width * dpr; canvas.height = vp.height * dpr;
+  canvas.style.width = vp.width + "px"; canvas.style.height = vp.height + "px";
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (task) task.cancel();
+  task = pg.render({canvasContext: ctx, viewport: vp});
+  try { await task.promise; } catch (e) { return; }
+  if (my !== seq) return;
+  const tl = wrap.querySelector(".textLayer");
+  tl.innerHTML = "";
+  tl.style.setProperty("--scale-factor", vp.scale);
+  const textDivs = [];
+  await pdfjsLib.renderTextLayer({textContentSource: await pg.getTextContent(), container: tl, viewport: vp, textDivs}).promise;
+  let first = null;
+  for (const q of quotes) {
+    const r = exactRange(textDivs, q);
+    if (r) first = first || markRange(textDivs, r);
+    else coverSpans(textDivs, [q]).forEach((on, i) => { if (on) { textDivs[i].classList.add("hl2"); first = first || textDivs[i]; } });
+  }
+  $("#pg").textContent = (LANG === "zh" ? `第 ${n} / ${pdfDoc.numPages} 页` : `page ${n} / ${pdfDoc.numPages}`) + (quotes.length && !first ? "  ·  " + t("the text layer of this page could not be matched, so nothing is highlighted") : "");
+  if (first) first.scrollIntoView({block: "center", behavior: "smooth"});
+}
+
+(function splitters() {
+  const main = document.querySelector("main"), KEY = "quotesightWidths";
+  const apply = w => { if (w.w1) main.style.setProperty("--w1", w.w1 + "px"); if (w.w2) main.style.setProperty("--w2", w.w2 + "px"); };
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
+  apply(saved);
+  document.querySelectorAll(".gut").forEach(g => {
+    g.addEventListener("pointerdown", e => {
+      e.preventDefault();
+      const c1 = $("#c1"), c2 = $("#c2"), x0 = e.clientX, w1 = c1.offsetWidth, w2 = c2.offsetWidth, total = main.clientWidth;
+      g.classList.add("drag"); document.body.classList.add("dragging"); g.setPointerCapture(e.pointerId);
+      const move = ev => {
+        const dx = ev.clientX - x0;
+        if (g.dataset.g === "1") {
+          const n1 = Math.max(180, Math.min(w1 + dx, total - w2 - 260));
+          saved.w1 = n1; saved.w2 = w2; apply(saved);
+        } else {
+          saved.w1 = w1; saved.w2 = Math.max(220, Math.min(w2 + dx, total - w1 - 260)); apply(saved);
+        }
+      };
+      const up = () => {
+        g.removeEventListener("pointermove", move); g.removeEventListener("pointerup", up);
+        g.classList.remove("drag"); document.body.classList.remove("dragging");
+        try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {}
+        if (pdfDoc) render(pageNo, lastQuotes);
+      };
+      g.addEventListener("pointermove", move); g.addEventListener("pointerup", up);
+    });
+    g.addEventListener("dblclick", () => {
+      saved = {}; main.style.removeProperty("--w1"); main.style.removeProperty("--w2");
+      try { localStorage.removeItem(KEY); } catch (e) {}
+      if (pdfDoc) render(pageNo, lastQuotes);
+    });
+  });
+})();
+
+$("#go").onclick = search;
+$("#lang").onclick = () => setLang(LANG === "zh" ? "en" : "zh");
+$("#q").addEventListener("keydown", e => { if (e.key === "Enter" && !$("#go").disabled) search(); });
+$("#mode").onchange = () => setModelLabel($("#mode").value);
+$("#upd").onclick = async () => {
+  await fetch("/api/update", {method: "POST"});
+  const poll = async () => {
+    const s = await fetch("/api/update").then(r => r.json());
+    if (s.running) { busy(true, t("updating index: ") + (s.log.slice(-1)[0] || "…")); setTimeout(poll, 2000); }
+    else { const r = s.result || {}; busy(false, r.error ? t("update failed: ") + r.error : `${t("index updated")}: ${r.indexed} ${t("indexed")}, ${r.removed} ${t("removed")}`); }
+  };
+  poll();
+};
+</script>
+</body>
+</html>

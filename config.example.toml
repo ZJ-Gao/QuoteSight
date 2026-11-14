@@ -1,0 +1,63 @@
+# QuoteSight configuration. Copy to config.toml (quotesight init does this) and edit.
+# Paths: "~" is your home folder. On Windows use single quotes so backslashes stay literal,
+# for example  roots = ['C:\Users\me\Documents\Papers']  or use forward slashes.
+
+[library]
+# Folders that hold your PDFs. Every PDF below them is indexed.
+# Leave empty when Obsidian is enabled to index every PDF in the vault.
+roots = ["~/Documents/Papers"]
+# "subfolder": the first-level subfolder under a root is the paper's topic (used for filtering).
+# "none": no topics.
+topics = "subfolder"
+# Optional regular expression; only topic folders whose name matches are indexed. Example: "^[0-9]+_"
+topic_pattern = ""
+# Folder names to skip anywhere in the tree.
+exclude = [".obsidian", ".trash", ".git", "node_modules"]
+# One phrase that tells the LLM what the library is about.
+description = "research papers in geoscience"
+
+[obsidian]
+# Turn on to link results to Obsidian notes and open PDFs and notes in Obsidian.
+# Notes are matched to PDFs through a [[file.pdf]] link anywhere in the note, so it works with
+# any attachment folder setting. Frontmatter Title, Year and Journal fill in when Crossref has no record.
+enabled = false
+vault = "~/Documents/ObsidianVault"
+# Notes whose file name starts with one of these are ignored (for example summary or index notes).
+skip_note_prefixes = []
+
+[index]
+# Where the index, history and logs go. Relative to this file. Keep it outside the vault.
+data_dir = "./data"
+chunk_words = 300
+max_words = 450
+# Embedding model (downloaded once, about 550 MB). English text. For mixed languages try "BAAI/bge-m3".
+embed_model = "nomic-ai/nomic-embed-text-v1.5"
+# auto picks cuda (NVIDIA), then mps (Apple silicon), then cpu.
+device = "auto"
+workers = 4
+
+[metadata]
+# Look up title, authors, journal and DOI on Crossref. Only DOIs and title text are sent.
+crossref = true
+# Optional e-mail for Crossref's polite pool (faster, more reliable). Leave empty to send none.
+mailto = ""
+
+[llm]
+# "claude" (Claude Code CLI), "codex" (OpenAI Codex CLI) or "none" (quick mode only).
+backend = "claude"
+# Language of the LLM's notes and summary. Quotes always stay in the original language.
+language = "English"
+# Passages handed to the LLM per search (about 500 tokens each).
+max_passages = 30
+claude_model = "sonnet"
+claude_effort = "medium"
+# Empty uses the Codex CLI default model.
+codex_model = ""
+codex_effort = "medium"
+
+[app]
+host = "127.0.0.1"
+port = 8765
+# Board language: "en" (English only) or "zh" (Chinese interface; LLM notes and summary in Chinese,
+# quotes stay in the original language). Switchable on the board; this is the default.
+ui_language = "en"
