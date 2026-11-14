@@ -20,7 +20,7 @@
 
 </div>
 
-<!-- 截图：三栏看板和高亮的原句 -->
+https://github.com/user-attachments/assets/22af025f-e684-41b7-8c81-9a2a768aa9d7
 
 QuoteSight 读取一个文件夹里的所有 PDF，把文字切成段落，建两套索引：一套按关键词，一套按意思。你可以在本地网页（看板）里搜，也可以在命令行里搜，还可以让 Claude Code、Codex 这类 coding agent 替你搜。
 

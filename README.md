@@ -20,7 +20,7 @@ Type a claim; get the papers that support or refute it, the verbatim quotes, and
 
 </div>
 
-<!-- screenshot: the three-column board with a highlighted quote -->
+https://github.com/user-attachments/assets/22af025f-e684-41b7-8c81-9a2a768aa9d7
 
 QuoteSight reads every PDF in a folder, splits the text into passages, and builds two indexes: one for keywords and one for meaning. You can search it in a local web page (the board), from the command line, or let a coding agent such as Claude Code or Codex search it for you.
 

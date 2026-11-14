@@ -7,6 +7,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 :root {
+  --card-shadow: 0 1px 2px rgba(0,0,0,.04), 0 3px 12px rgba(0,0,0,.05);
+  --on-accent: #FFFFFF;
+  --hud-bg: #FFFFFF; --hud-ink: #24292F; --hud-cyan: #0E7490; --hud-yellow: #B45309; --hud-green: #15803D;
+  --hud-dim: #6B7280; --hud-sep: #C3C8CF; --hud-track: #D5DAE0; --hud-bar: #4C8BD9; --hud-border: #E3E1DC;
+  --hud-shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.06);
   --bg: #f7f6f3; --panel: #ffffff; --ink: #1f2328; --muted: #6b7078; --line: #e3e1dc;
   --accent: #2f6f8f; --accent-soft: #dcebf2; --chip: #eeece7; --sel: #eef5f8;
   --sup: #2e7d4f; --sup-bg: #e2f2e8; --ref: #b3412f; --ref-bg: #f8e3df; --ctx: #7a6a1f; --ctx-bg: #f4eed3;
@@ -14,12 +19,22 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    --card-shadow: 0 2px 12px rgba(0,0,0,.35);
+    --on-accent: #0F1A20;
+    --hud-bg: #111315; --hud-ink: #D7D7D2; --hud-cyan: #4FB6C4; --hud-yellow: #E5C07B; --hud-green: #7EC16E;
+    --hud-dim: #8A8F94; --hud-sep: #5C6166; --hud-track: #3A3F44; --hud-bar: #79A5D6; --hud-border: #2A2E33;
+    --hud-shadow: 0 2px 12px rgba(0,0,0,.45);
     --bg: #17191c; --panel: #1f2226; --ink: #e6e6e3; --muted: #9aa0a6; --line: #30343a;
     --accent: #7fb8d4; --accent-soft: #23343d; --chip: #2a2e33; --sel: #23303a;
     --sup: #7fcf9c; --sup-bg: #1e3327; --ref: #f0937f; --ref-bg: #3a221e; --ctx: #d9c66e; --ctx-bg: #35301a;
   }
 }
 :root[data-theme="dark"] {
+    --card-shadow: 0 2px 12px rgba(0,0,0,.35);
+    --on-accent: #0F1A20;
+    --hud-bg: #111315; --hud-ink: #D7D7D2; --hud-cyan: #4FB6C4; --hud-yellow: #E5C07B; --hud-green: #7EC16E;
+    --hud-dim: #8A8F94; --hud-sep: #5C6166; --hud-track: #3A3F44; --hud-bar: #79A5D6; --hud-border: #2A2E33;
+    --hud-shadow: 0 2px 12px rgba(0,0,0,.45);
   --bg: #17191c; --panel: #1f2226; --ink: #e6e6e3; --muted: #9aa0a6; --line: #30343a;
   --accent: #7fb8d4; --accent-soft: #23343d; --chip: #2a2e33; --sel: #23303a;
   --sup: #7fcf9c; --sup-bg: #1e3327; --ref: #f0937f; --ref-bg: #3a221e; --ctx: #d9c66e; --ctx-bg: #35301a;
@@ -27,40 +42,54 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body { background: var(--bg); color: var(--ink); font: 14px/1.5 -apple-system, "Helvetica Neue", "PingFang SC", sans-serif; display: flex; flex-direction: column; }
-header { display: flex; gap: 8px; padding: 10px 16px; background: var(--panel); flex-wrap: wrap; align-items: center; }
-header input[type=text] { flex: 1 1 360px; min-width: 0; padding: 9px 12px; font-size: 15px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
+header { border-bottom: 0; display: flex; gap: 8px; padding: 10px 16px; background: var(--panel); flex-wrap: wrap; align-items: center; }
+header input[type=text] { flex: 1 1 240px; min-width: 0; padding: 9px 12px; font-size: 15px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
 header input[type=text]:focus { outline: 2px solid var(--accent); border-color: transparent; }
 select, button { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); font-size: 13px; cursor: pointer; }
-button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 button:disabled { opacity: .5; cursor: default; }
 
 #theme { padding: 8px 6px; }
-#hud { background: #111315; color: #d7d7d2; font: 13px/1.55 "SF Mono", Menlo, Monaco, monospace; padding: 6px 16px; border-top: 1px solid #000; border-bottom: 1px solid #000; }
+#hud { background: var(--hud-bg); color: var(--hud-ink); font: 12.5px/1.6 "SF Mono", Menlo, Consolas, monospace; padding: 8px 14px; margin: 8px 16px 12px; align-self: flex-start; max-width: calc(100% - 32px); border: 1px solid var(--hud-border); border-radius: 12px; box-shadow: var(--hud-shadow); }
 #hud .row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; white-space: nowrap; }
-#hud .cyan { color: #4fb6c4; } #hud .yellow { color: #e5c07b; } #hud .green { color: #7ec16e; } #hud .dim { color: #8a8f94; }
-#hud .sep { color: #5c6166; margin: 0 4px; }
+#hud .cyan { color: var(--hud-cyan); } #hud .yellow { color: var(--hud-yellow); } #hud .green { color: var(--hud-green); } #hud .dim { color: var(--hud-dim); }
+#hud .hg { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+#hud .sep { color: var(--hud-sep); margin: 0 4px; }
 .tbar { position: relative; display: inline-block; width: 150px; height: 14px; overflow: hidden;
-  background-image: radial-gradient(#3a3f44 1px, transparent 1.2px); background-size: 3px 3px; }
-.tbar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: #79a5d6; }
+  background-image: radial-gradient(var(--hud-track) 1px, transparent 1.2px); background-size: 3px 3px; }
+.tbar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--hud-bar); border-radius: 2px; }
 .tbar.warn i { background: #d9a03b; } .tbar.bad i { background: #d0584a; }
-#state { display: inline-flex; align-items: center; gap: 6px; color: #e5c07b; }
-.spin { width: 10px; height: 10px; border: 2px solid #3a3f44; border-top-color: #e5c07b; border-radius: 50%; animation: s 0.8s linear infinite; display: none; }
+#state { display: inline-flex; align-items: center; gap: 6px; color: var(--hud-yellow); }
+.spin { width: 10px; height: 10px; border: 2px solid var(--hud-track); border-top-color: var(--hud-yellow); border-radius: 50%; animation: s 0.8s linear infinite; display: none; }
 .busy .spin { display: inline-block; }
 @keyframes s { to { transform: rotate(360deg); } }
 
-main { flex: 1; display: grid; grid-template-columns: var(--w1, 300px) 7px var(--w2, minmax(300px, 1fr)) 7px minmax(280px, 1.25fr); min-height: 0; }
-.gut { cursor: col-resize; background: var(--line); width: 1px; margin: 0 3px; position: relative; }
-.gut::after { content: ""; position: absolute; inset: 0 -4px; }
-.gut:hover, .gut.drag { background: var(--accent); width: 3px; margin: 0 2px; }
+html, body { overflow-x: hidden; }
+main { flex: 1; display: grid; grid-template-columns: minmax(190px, var(--f1, 22fr)) 12px minmax(240px, var(--f2, 33fr)) 12px minmax(260px, var(--f3, 45fr)); grid-template-rows: auto 1fr; min-height: 0; padding: 8px 16px 16px; }
+main > #hud { grid-column: 1 / 4; grid-row: 1; margin: 0 0 12px; justify-self: start; max-width: 100%; }
+#c1 { grid-column: 1; grid-row: 2; } .gut[data-g="1"] { grid-column: 2; grid-row: 2; } #c2 { grid-column: 3; grid-row: 2; }
+.gut[data-g="2"] { grid-column: 4; grid-row: 1 / 3; }
+#c3 { grid-column: 5; grid-row: 1 / 3; margin-top: var(--c3top, 0px); }
+.vgrip { grid-column: 5; grid-row: 1; align-self: start; margin-top: var(--c3top, 0px); height: 14px; z-index: 2; cursor: row-resize; position: relative; }
+.vgrip::after { content: ""; position: absolute; left: 50%; top: 5px; width: 44px; height: 4px; margin-left: -22px; border-radius: 2px; background: var(--line); transition: background .15s; }
+.vgrip:hover::after, .vgrip.drag::after { background: var(--accent); }
+body.vdragging { cursor: row-resize; user-select: none; }
+.gut { cursor: col-resize; position: relative; }
+.gut::after { content: ""; position: absolute; top: 50%; left: 4px; width: 4px; height: 44px; margin-top: -22px; border-radius: 2px; background: var(--line); transition: background .15s; }
+.gut:hover::after, .gut.drag::after { background: var(--accent); }
 body.dragging { cursor: col-resize; user-select: none; }
 body.dragging iframe, body.dragging canvas { pointer-events: none; }
-.col { overflow-y: auto; min-height: 0; }
+.col { overflow-y: auto; min-height: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--card-shadow); }
 #c1 { padding: 10px; }
 #c2 { padding: 14px 16px 40px; }
-#c3 { padding: 12px; background: var(--bg); }
+#c3 { padding: 12px; }
 #hist { margin-bottom: 10px; font-size: 13px; }
 #htog { border: 0; background: none; padding: 4px 2px; color: var(--muted); font-size: 13px; }
 #htog:hover { color: var(--ink); }
+#hist { position: relative; }
+.hhint { margin-left: 6px; font-size: 11.5px; color: var(--muted); opacity: 0; transition: opacity .15s; pointer-events: none; white-space: nowrap; }
+#hist:hover .hhint, #htog:focus-visible + .hhint { opacity: 1; }
+.hhint kbd { font: 10.5px/1 "SF Mono", Menlo, Consolas, monospace; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 1px 4px; margin-right: 2px; background: var(--bg); color: var(--ink); }
 #hq { width: 100%; margin: 6px 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font-size: 12.5px; }
 #hlist { max-height: 40vh; overflow-y: auto; }
 #hbody { background: var(--chip); border-radius: 8px; padding: 6px; margin-bottom: 6px; }
@@ -74,9 +103,9 @@ body.dragging iframe, body.dragging canvas { pointer-events: none; }
 .summary .qs { margin-top: 6px; color: var(--muted); font-size: 12px; }
 .filters { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; }
 .filters button { padding: 3px 9px; font-size: 12px; border-radius: 12px; }
-.filters button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.filters button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .card { padding: 9px 11px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; margin-bottom: 3px; }
-.card:hover { background: var(--panel); }
+.card:hover { background: var(--sel); }
 .card.sel { background: var(--sel); border-color: var(--line); }
 .card .t { font-weight: 600; font-size: 13px; line-height: 1.35; }
 .card .f { color: var(--muted); font-size: 11.5px; margin-top: 2px; word-break: break-all; }
@@ -106,10 +135,13 @@ body.dragging iframe, body.dragging canvas { pointer-events: none; }
 .textLayer span, .textLayer br { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
 .textLayer span.hl2 { background: var(--hl); border-radius: 2px; }
 .empty { color: var(--muted); padding: 30px 16px; text-align: center; }
-@media (max-width: 900px) {
+@media (max-width: 820px) {
+  .vgrip { display: none; }
+  #c3 { margin-top: 0; }
   .gut { display: none; }
   main { display: block; overflow-y: auto; }
-  .col { overflow: visible; border-right: 0 !important; border-bottom: 1px solid var(--line); }
+  main { padding: 0 12px 12px; }
+  .col { overflow: visible; margin-bottom: 12px; }
 }
 </style>
 </head>
@@ -126,6 +158,7 @@ body.dragging iframe, body.dragging canvas { pointer-events: none; }
   <button id="upd" title="Add new or changed PDFs to the index">Update index</button>
   <button id="lang" title="Language">EN</button>
 </header>
+<main>
 <div id="hud">
   <div class="row">
     <span class="cyan">[<span id="h-model">…</span> | <span id="h-effort">…</span>]</span><span class="sep">|</span>
@@ -134,16 +167,16 @@ body.dragging iframe, body.dragging canvas { pointer-events: none; }
   </div>
   <div class="row">
     <span class="dim">this search</span> <span class="green" id="h-tok">–</span><span class="dim"> tok ·</span> <span id="h-sec">–</span><span class="sep">|</span>
-    <span class="dim" title="Claude account, 5-hour window: share used (time to reset / window). Includes your other Claude use.">Usage</span>
-    <span class="tbar" id="m5"><i></i></span><span class="green" id="h5">–</span><span class="dim" id="r5"></span><span class="sep">|</span>
-    <span class="tbar" id="m7" title="Claude account, 7-day window"><i></i></span><span class="green" id="h7">–</span><span class="dim" id="r7"></span><span class="sep">|</span>
-    <span class="dim">session</span> <span id="h-app">0</span><span class="dim"> tok ·</span> <span id="h-n">0</span><span class="dim"> searches</span>
+    <span class="hg"><span class="dim" title="Claude account, 5-hour window: share used (time to reset / window). Includes your other Claude use.">Usage</span>
+    <span class="tbar" id="m5"><i></i></span><span class="green" id="h5">–</span><span class="dim" id="r5"></span></span><span class="sep">|</span>
+    <span class="hg"><span class="tbar" id="m7" title="Claude account, 7-day window"><i></i></span><span class="green" id="h7">–</span><span class="dim" id="r7"></span></span><span class="sep">|</span>
+    <span class="hg"><span class="dim">session</span> <span id="h-app">0</span><span class="dim"> tok ·</span> <span id="h-n">0</span><span class="dim"> searches</span></span>
   </div>
 </div>
-<main>
   <div class="col" id="c1">
     <div id="hist">
       <button id="htog" type="button">▸ History <span id="hn"></span></button>
+      <span class="hhint"><kbd>Esc</kbd><kbd>Esc</kbd> <span>press Esc twice to close</span></span>
       <div id="hbody" hidden>
         <input id="hq" type="text" placeholder="Filter: claim, quote, file name">
         <div id="hlist"></div>
@@ -154,6 +187,7 @@ body.dragging iframe, body.dragging canvas { pointer-events: none; }
   <div class="gut" data-g="1" title="drag to resize, double-click to reset"></div>
   <div class="col" id="c2"><div class="empty">Pick a paper on the left to see its quotes</div></div>
   <div class="gut" data-g="2" title="drag to resize, double-click to reset"></div>
+  <div class="vgrip" title="drag to move the top of the PDF column, double-click to reset"></div>
   <div class="col" id="c3"><div class="empty">Click a quote to see it highlighted on the PDF page</div></div>
 </main>
 <script>
@@ -166,7 +200,8 @@ const authLong = a => { if (!a) return ""; const L = a.split("; "); return L.len
 const STANCE = {support: "supports", refute: "refutes", context: "context", match: "match"};
 const SL = k => t(STANCE[k]);
 const ZH = {
-  "System": "跟随系统", "Light": "浅色", "Dark": "深色", "Theme": "主题",
+  "press Esc twice to close": "双击 Esc 退出", "drag to move the top of the PDF column, double-click to reset": "拖动调整 PDF 栏的顶部位置，双击恢复",
+  "Usage": "额度", "System": "跟随系统", "Light": "浅色", "Dark": "深色", "Theme": "主题",
   "supports": "支持", "refutes": "反驳", "context": "背景", "match": "相关", "all": "全部",
   "no LLM": "不用大模型", "quick": "快速", "default": "默认",
   "opened from history (no tokens used)": "已打开历史记录（未消耗额度）",
@@ -214,10 +249,18 @@ function translateStatic() {
   $("#lang").textContent = LANG === "zh" ? "中英" : "EN";
   document.documentElement.lang = LANG === "zh" ? "zh" : "en";
 }
+function renderEmpty() {
+  const E1 = "Type a claim or topic to start", E2 = "Pick a paper on the left to see its quotes", E3 = "Click a quote to see it highlighted on the PDF page", READY = "ready";
+  if (!res && $("#c1b .empty")) $("#c1b").innerHTML = `<div class="empty">${t(E1)}</div>`;
+  if (!curPaper && $("#c2 .empty")) $("#c2").innerHTML = `<div class="empty">${t(E2)}</div>`;
+  if ($("#c3 .empty")) $("#c3").innerHTML = `<div class="empty">${t(E3)}</div>`;
+  if (!$("#state").classList.contains("busy") && [READY, t(READY), "ready", "就绪"].includes($("#stext").textContent)) $("#stext").textContent = t(READY);
+}
 function setLang(l) {
   LANG = l === "zh" ? "zh" : "en";
   try { localStorage.setItem("quotesightLang", LANG); } catch (e) {}
   translateStatic();
+  renderEmpty();
   setModelLabel($("#mode").value);
   if (typeof setHist === "function") setHist(!$("#hbody").hidden);
   if (res) { renderList(); if (curPaper) selectPaper(papers.indexOf(curPaper)); }
@@ -278,7 +321,7 @@ function renderHist() {
   document.querySelectorAll(".hi[data-id]").forEach(e => e.onclick = async () => {
     const d = await fetch("/api/history/" + e.dataset.id).then(r => r.json());
     $("#q").value = d.claim; $("#c2").innerHTML = ""; $("#c3").innerHTML = ""; pdfId = null;
-    busy(false, t("opened from history (no tokens used)"));
+    busy(false, t("opened from history (no tokens used)") + " · " + t("press Esc twice to close"));
     setHist(false);
     show(d);
   });
@@ -382,7 +425,7 @@ function selectPaper(i) {
       <div class="finding ${f.stance}" data-k="${k}">
         <div class="h"><span class="tag ${f.stance}">${SL(f.stance)}</span> p.${f.page}
           ${f.verified ? "" : `<span class="unver" title="${t("This quote was not found word for word in the passage; check it")}">${t("unverified")}</span>`}</div>
-        <div class="quote">${esc(f.quote)}</div>
+        <div class="quote">${esc(cleanMd(f.quote))}</div>
         ${f.note ? `<div class="note">${esc(f.note)}</div>` : ""}
       </div>`).join("")}`;
   const obs = path => location.href = "obsidian://open?path=" + encodeURIComponent(path);
@@ -413,9 +456,14 @@ async function showFinding(k) {
     pdfLoading = pdfjsLib.getDocument(`/pdf/${f.paper.id}`).promise;
   }
   pdfDoc = await pdfLoading;
-  await render(f.page, [f.quote]);
+  await render(f.page, [cleanMd(f.quote)]);
 }
 
+const SUP = {"0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵","6":"⁶","7":"⁷","8":"⁸","9":"⁹","-":"⁻","−":"⁻","+":"⁺"};
+const SUB = {"0":"₀","1":"₁","2":"₂","3":"₃","4":"₄","5":"₅","6":"₆","7":"₇","8":"₈","9":"₉"};
+const mapAll = (x, m, mark) => [...x].every(c => m[c]) ? [...x].map(c => m[c]).join("") : mark + x;
+const cleanMd = s => (s || "").replace(/<sup>(.*?)<\/sup>/g, (_, x) => mapAll(x, SUP, "^"))
+  .replace(/<sub>(.*?)<\/sub>/g, (_, x) => mapAll(x, SUB, "_")).replace(/<\/?u>/g, "").replace(/\*\*(.+?)\*\*/g, "$1");
 const norm = s => s.normalize("NFKC").toLowerCase().replace(/[^a-z0-9]/g, "");
 function coverSpans(divs, targets, W = 24, step = 8) {
   const owner = []; let str = "";
@@ -502,24 +550,24 @@ async function render(n, quotes) {
 }
 
 (function splitters() {
-  const main = document.querySelector("main"), KEY = "quotesightWidths";
-  const apply = w => { if (w.w1) main.style.setProperty("--w1", w.w1 + "px"); if (w.w2) main.style.setProperty("--w2", w.w2 + "px"); };
+  const main = document.querySelector("main"), KEY = "quotesightCols";
+  const MIN = [190, 240, 260];
+  const apply = f => { ["f1", "f2", "f3"].forEach(k => f[k] ? main.style.setProperty("--" + k, f[k] + "fr") : main.style.removeProperty("--" + k)); };
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
   apply(saved);
   document.querySelectorAll(".gut").forEach(g => {
     g.addEventListener("pointerdown", e => {
       e.preventDefault();
-      const c1 = $("#c1"), c2 = $("#c2"), x0 = e.clientX, w1 = c1.offsetWidth, w2 = c2.offsetWidth, total = main.clientWidth;
+      const x0 = e.clientX, w = [$("#c1").offsetWidth, $("#c2").offsetWidth, $("#c3").offsetWidth];
       g.classList.add("drag"); document.body.classList.add("dragging"); g.setPointerCapture(e.pointerId);
       const move = ev => {
-        const dx = ev.clientX - x0;
-        if (g.dataset.g === "1") {
-          const n1 = Math.max(180, Math.min(w1 + dx, total - w2 - 260));
-          saved.w1 = n1; saved.w2 = w2; apply(saved);
-        } else {
-          saved.w1 = w1; saved.w2 = Math.max(220, Math.min(w2 + dx, total - w1 - 260)); apply(saved);
-        }
+        const dx = ev.clientX - x0, n = w.slice();
+        const [a, b] = g.dataset.g === "1" ? [0, 1] : [1, 2];
+        n[a] = Math.max(MIN[a], Math.min(w[a] + dx, w[a] + w[b] - MIN[b]));
+        n[b] = w[a] + w[b] - n[a];
+        saved = {f1: Math.round(n[0]), f2: Math.round(n[1]), f3: Math.round(n[2])};
+        apply(saved);
       };
       const up = () => {
         g.removeEventListener("pointermove", move); g.removeEventListener("pointerup", up);
@@ -530,12 +578,53 @@ async function render(n, quotes) {
       g.addEventListener("pointermove", move); g.addEventListener("pointerup", up);
     });
     g.addEventListener("dblclick", () => {
-      saved = {}; main.style.removeProperty("--w1"); main.style.removeProperty("--w2");
+      saved = {}; apply(saved);
       try { localStorage.removeItem(KEY); } catch (e) {}
       if (pdfDoc) render(pageNo, lastQuotes);
     });
   });
+  let rt = null;
+  window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { if (pdfDoc) render(pageNo, lastQuotes); }, 200); });
 })();
+
+(function pdfTopGrip() {
+  const main = document.querySelector("main"), g = document.querySelector(".vgrip"), KEY = "quotesightPdfTop";
+  const apply = v => main.style.setProperty("--c3top", v + "px");
+  let top = 0;
+  try { top = +localStorage.getItem(KEY) || 0; } catch (e) {}
+  apply(top);
+  g.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    const y0 = e.clientY, t0 = top, max = Math.max(0, main.clientHeight - 260);
+    g.classList.add("drag"); document.body.classList.add("vdragging"); g.setPointerCapture(e.pointerId);
+    const move = ev => { top = Math.max(0, Math.min(t0 + ev.clientY - y0, max)); apply(top); };
+    const up = () => {
+      g.removeEventListener("pointermove", move); g.removeEventListener("pointerup", up);
+      g.classList.remove("drag"); document.body.classList.remove("vdragging");
+      try { localStorage.setItem(KEY, top); } catch (e) {}
+    };
+    g.addEventListener("pointermove", move); g.addEventListener("pointerup", up);
+  });
+  g.addEventListener("dblclick", () => { top = 0; apply(0); try { localStorage.removeItem(KEY); } catch (e) {} });
+})();
+
+function resetView() {
+  res = null; papers = []; curPaper = null; pdfDoc = null; pdfId = null; filter = "all";
+  $("#c1b").innerHTML = `<div class="empty">${t("Type a claim or topic to start")}</div>`;
+  $("#c2").innerHTML = `<div class="empty">${t("Pick a paper on the left to see its quotes")}</div>`;
+  $("#c3").innerHTML = `<div class="empty">${t("Click a quote to see it highlighted on the PDF page")}</div>`;
+  $("#q").value = "";
+  setHist(false);
+  busy(false, t("ready"));
+  $("#q").focus();
+}
+let lastEsc = 0;
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape" || $("#state").classList.contains("busy")) return;
+  const now = Date.now();
+  if (now - lastEsc < 500) { resetView(); lastEsc = 0; }
+  else { lastEsc = now; if (!$("#hbody").hidden) setHist(false); }
+});
 
 $("#go").onclick = search;
 function setTheme(v) {

@@ -16,3 +16,7 @@ dist/
 # os
 .DS_Store
 Thumbs.db
+
+# raw screen recordings (the demo video is hosted as a GitHub attachment)
+screenrecording*.mp4
+*.mov
