@@ -34,6 +34,7 @@ select, button { padding: 8px 10px; border: 1px solid var(--line); border-radius
 button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 button:disabled { opacity: .5; cursor: default; }
 
+#theme { padding: 8px 6px; }
 #hud { background: #111315; color: #d7d7d2; font: 13px/1.55 "SF Mono", Menlo, Monaco, monospace; padding: 6px 16px; border-top: 1px solid #000; border-bottom: 1px solid #000; }
 #hud .row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; white-space: nowrap; }
 #hud .cyan { color: #4fb6c4; } #hud .yellow { color: #e5c07b; } #hud .green { color: #7ec16e; } #hud .dim { color: #8a8f94; }
@@ -114,6 +115,7 @@ body.dragging iframe, body.dragging canvas { pointer-events: none; }
 </head>
 <body>
 <header>
+  <select id="theme" title="Theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
   <input id="q" type="text" placeholder="Type a claim or a topic and press Enter" autofocus>
   <select id="mode" title="How to search">
     <option value="claude">Claude (precise, ~30 s)</option>
@@ -164,6 +166,7 @@ const authLong = a => { if (!a) return ""; const L = a.split("; "); return L.len
 const STANCE = {support: "supports", refute: "refutes", context: "context", match: "match"};
 const SL = k => t(STANCE[k]);
 const ZH = {
+  "System": "跟随系统", "Light": "浅色", "Dark": "深色", "Theme": "主题",
   "supports": "支持", "refutes": "反驳", "context": "背景", "match": "相关", "all": "全部",
   "no LLM": "不用大模型", "quick": "快速", "default": "默认",
   "opened from history (no tokens used)": "已打开历史记录（未消耗额度）",
@@ -535,6 +538,14 @@ async function render(n, quotes) {
 })();
 
 $("#go").onclick = search;
+function setTheme(v) {
+  if (v === "light" || v === "dark") document.documentElement.setAttribute("data-theme", v);
+  else document.documentElement.removeAttribute("data-theme");
+  $("#theme").value = ["light", "dark"].includes(v) ? v : "system";
+  try { localStorage.setItem("quotesightTheme", $("#theme").value); } catch (e) {}
+}
+$("#theme").onchange = () => setTheme($("#theme").value);
+{ let v = "system"; try { v = localStorage.getItem("quotesightTheme") || "system"; } catch (e) {} setTheme(v); }
 $("#lang").onclick = () => setLang(LANG === "zh" ? "en" : "zh");
 $("#q").addEventListener("keydown", e => { if (e.key === "Enter" && !$("#go").disabled) search(); });
 $("#mode").onchange = () => setModelLabel($("#mode").value);

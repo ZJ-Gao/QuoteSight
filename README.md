@@ -105,7 +105,7 @@ Choose the search mode at the top:
 - **Claude** or **Codex**: precise, with about 30 seconds and 25,000 to 46,000 tokens per search.
 - **Quick**: no agent, about one to two seconds and no tokens. Instead of agent quotes, the embedding model marks the most relevant sentences.
 
-Drag the dividers to resize the columns. **EN / 中英** switches the language: in 中英 mode the interface, notes and summaries are in Chinese, and the quotes stay in the original English. **History** (top left, collapsed) reopens earlier searches without using tokens. **Update index** brings the index up to date with your PDF folder (new, changed and deleted PDFs).
+The menu at the top left sets the theme: System, Light or Dark. Drag the dividers to resize the columns. **EN / 中英** switches the language: in 中英 mode the interface, notes and summaries are in Chinese, and the quotes stay in the original English. **History** (top left, collapsed) reopens earlier searches without using tokens. **Update index** brings the index up to date with your PDF folder (new, changed and deleted PDFs).
 
 ### From the command line
 
