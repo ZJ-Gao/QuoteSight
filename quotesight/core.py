@@ -166,39 +166,6 @@ def scan_library():
     return found
 
 
-LINK_RE = re.compile(r"\[\[([^\]|#]+?\.pdf)", re.I)
-
-
-def note_map():
-    """Obsidian only: map pdf file name -> note path and frontmatter (Title, Year, Journal),
-    from the [[...pdf]] link in each note. Works wherever the vault keeps its attachments."""
-    cfg = config.get()
-    if not cfg.obsidian_enabled:
-        return {}
-    skip = tuple(cfg["obsidian"]["skip_note_prefixes"])
-    out = {}
-    for d, dirs, names in os.walk(cfg.vault):
-        dirs[:] = [x for x in dirs if not x.startswith(".")]
-        for n in names:
-            if not n.endswith(".md") or (skip and n.startswith(skip)):
-                continue
-            path = Path(d) / n
-            try:
-                txt = path.read_text(encoding="utf-8", errors="ignore")[:6000]
-            except OSError:
-                continue
-            m = LINK_RE.search(txt)
-            if not m:
-                continue
-            meta = {"note": str(path)}
-            for key in ("Title", "Year", "Journal"):
-                mm = re.search(rf"^{key}:\s*\"?(.+?)\"?\s*$", txt, re.M | re.I)
-                if mm and mm.group(1).strip():
-                    meta[key.lower()] = mm.group(1).strip()
-            out.setdefault(os.path.basename(m.group(1)), meta)
-    return out
-
-
 def guess_from_filename(fn):
     stem = re.sub(r"\.pdf$", "", fn, flags=re.I)
     parts = stem.split("_")
@@ -239,10 +206,9 @@ def update(workers=None, timeout=180, log=print, only=None, embed_after=True, me
             continue
         todo.append(path)
 
-    notes = note_map()
+    notes = {}
     for path, folder in found.items():
-        meta = notes.get(os.path.basename(path), {})
-        con.execute("UPDATE papers SET folder=?, note=? WHERE path=?", (folder, meta.get("note"), path))
+        con.execute("UPDATE papers SET folder=? WHERE path=?", (folder, path))
     con.commit()
 
     hash_owner = {}

@@ -6,7 +6,7 @@
 
 **See the real sentence that backs up your claim**
 
-Type a claim; get the papers that support or refute it, the verbatim quotes, and the PDF page with each quote highlighted. Everything is indexed on your computer. Works with or without Obsidian.
+For researchers with a folder full of papers and an argument that is still taking shape.
 
 ![macOS](https://img.shields.io/badge/macOS-Apple_Silicon_%7C_Intel-000000?style=flat-square&logo=apple&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=flat-square&logo=windows&logoColor=white)
@@ -20,13 +20,17 @@ Type a claim; get the papers that support or refute it, the verbatim quotes, and
 
 </div>
 
+You have hundreds of papers on your computer, and you are writing the introduction or discussion of a paper. You know roughly what you want to argue, but not which paper says it, let alone which paragraph or sentence. Keyword search often misses it because the paper puts it in other words, and opening PDFs one by one can take hours.
+
+QuoteSight first indexes the PDFs on your computer by keyword and by meaning. An AI agent you already use (Claude Code or Codex) can then search them with your half-formed argument and pick out the sentences that support or refute it. Each quote opens on its PDF page with the sentence highlighted, so you can check it against the original.
+
 https://github.com/user-attachments/assets/5e7a2aed-259a-4060-b3ab-354cf21326fa
 
-QuoteSight reads every PDF in a folder, splits the text into passages, and builds two indexes: one for keywords and one for meaning. You can search it in a local web page (the board), from the command line, or let a coding agent such as Claude Code or Codex search it for you.
-
-- **Simple**: run one installer, answer four questions, then double-click *Start*.
-- **Precise**: an optional coding agent reads the best passages and returns verbatim quotes tagged *supports*, *refutes* or *context*, and QuoteSight checks each quote against the PDF text.
-- **Private**: PDFs, notes and the index stay on your computer, and your files are only read, never changed.
+- **Start from a vague idea**: write the argument the way you would say it, and the agent turns it into a few precise searches.
+- **Spend fewer tokens**: because your library is indexed first, the agent reads only the few dozen most relevant passages instead of whole PDFs. A full search often costs fewer tokens than having the agent read one long paper.
+- **Check every quote**: QuoteSight matches each quote against the PDF text and marks any that do not match as *unverified*.
+- **Keep your files local**: the index stays on your computer, and your PDFs are only read, never changed. Only precise search sends your argument and the selected passages to Anthropic or OpenAI.
+- **Simple setup**: run one installer, answer four questions, then double-click *Start*.
 
 ## Before you start
 
@@ -36,7 +40,7 @@ The installer asks four questions. Decide these first:
 |---|---|---|
 | **1. Your system** | macOS or Windows | detected automatically |
 | **2. Your coding agent** for the precise search | Claude Code, Codex, or none | the one you already use. With none, the quick search still works |
-| **3. Where your PDFs are** | any folder, including its subfolders | the folder you already keep papers in. If it is inside an Obsidian vault, each PDF is linked to its note automatically |
+| **3. Where your PDFs are** | any folder, including its subfolders | the folder you already keep papers in |
 | **4. Where to keep the index** | any folder | the default (`data` inside the QuoteSight folder). Avoid the PDF folder and cloud-synced folders |
 
 Plan on about 3 GB of free disk space (Python packages and the embedding model) and roughly 30 MB per 100 papers for the index.
@@ -97,7 +101,7 @@ Prefer not to use the terminal yourself? Open Claude Code or Codex in the QuoteS
 Double-click *Start* (or run `quotesight-app`), type a claim or a topic, and press Enter.
 
 - **Left**: a short summary, then the papers, filterable by *supports*, *refutes* or *context*.
-- **Middle**: the quotes from the selected paper, each with a one-line note, plus buttons to open the PDF (or, with Obsidian, the note and the PDF in Obsidian).
+- **Middle**: the quotes from the selected paper, each with a one-line note, plus buttons to open the PDF in your PDF reader or in the browser.
 - **Right**: the PDF page with the quote highlighted.
 - **Top bar**: the model and effort, the tokens this search used, and how much of your 5-hour and 7-day usage is left (Claude only).
 
@@ -137,7 +141,7 @@ At the end of setup, QuoteSight prints a short instruction with the full path to
 2. **Duplicates**: when more than half of a PDF's passages already belong to another PDF, QuoteSight stores the paper once and lists its other file locations with it.
 3. **Two indexes**: a keyword index (SQLite FTS5, BM25 ranking) for exact names and terms, and a semantic index of [nomic-embed-text-v1.5](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5) vectors for passages that say the same thing in other words. The embedding model runs on your computer: on Apple silicon, an NVIDIA card or the processor.
 4. **Search**: a query runs through both indexes, and the two rankings are merged by reciprocal rank fusion. The percentage next to a paper is its share of the scores in that result list. It is useful for comparing papers but is not a probability.
-5. **Titles and authors**: QuoteSight takes a DOI from the first two pages, looks it up on [Crossref](https://www.crossref.org/) and uses the record only if its title appears in the PDF. Otherwise it falls back on Obsidian note properties or the file name.
+5. **Titles and authors**: QuoteSight takes a DOI from the first two pages, looks it up on [Crossref](https://www.crossref.org/) and uses the record only if its title appears in the PDF. Otherwise it falls back on the file name.
 6. **Precise search**: your coding agent turns the input into two to four specific queries, and QuoteSight runs them and hands the agent about 30 passages. The agent returns verbatim quotes, each with a stance and a note. QuoteSight then checks every quote against its passage and marks any that do not match as *unverified*. The agent receives only text and has no tools or file access. The prompts are plain Markdown in `quotesight/prompts/`, so you can adapt them to your field.
 7. **Highlight**: [pdf.js](https://mozilla.github.io/pdf.js/) renders the page's text layer, and the quote is matched in it character by character, so the highlight can start and end partway through a line. In some older PDFs, the font encoding garbles the text layer, and the board then reports that it cannot highlight the page.
 
@@ -146,9 +150,10 @@ At the end of setup, QuoteSight prints a short instruction with the full path to
 Setup writes `config.toml` to `~/.config/quotesight/` on macOS or `%APPDATA%\quotesight\` on Windows. Run `quotesight setup` again to change the main choices, or edit the file directly. [`config.example.toml`](config.example.toml) explains every option, and these are the ones you are most likely to change:
 
 - **Topic folders**: the first-level subfolders of your PDF folder become topics you can filter by. `topic_pattern` limits indexing to matching folder names.
-- **Obsidian**: notes are matched to PDFs through `[[file.pdf]]` links, so Obsidian's attachment folder setting does not matter. `skip_note_prefixes` ignores index or summary notes.
 - **Agent model and effort**: `claude_model`, `claude_effort`, `codex_model`, `codex_effort` (default: Sonnet, medium effort).
 - **Library description**: one phrase about your field, used in the agent's prompt.
+
+QuoteSight does not link to note-taking apps. To open results in your own notes (for example in Obsidian), ask your coding agent to add a button; the board is a single file, `quotesight/static/index.html`.
 
 ## Size and speed
 
@@ -164,7 +169,7 @@ Measured on an Apple silicon MacBook with 565 PDFs (4.8 GB):
 
 ## Data and privacy
 
-- **Local**: your PDFs, notes and index are stored only on your computer, and only your computer can reach the board (`127.0.0.1`).
+- **Local**: your PDFs and the index are stored only on your computer, and only your computer can reach the board (`127.0.0.1`).
 - **Crossref** receives DOIs and short title text, and an email address only if you add one in the settings.
 - **Precise search** sends your input and the selected passages to Anthropic or OpenAI, under your account's terms. Quick search sends nothing.
 - **Data folder** (the index folder you chose): `index.sqlite` holds the index; `history/` holds every precise search. Delete the folder to start over.

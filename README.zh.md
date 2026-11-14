@@ -6,7 +6,7 @@
 
 **从真实文献中找到支撑学术观点的那句话**
 
-输入一个观点，就能看到哪些文献支持它、哪些反驳它，每篇的原句，以及 PDF 原页上高亮的位置。索引全部在你的电脑上完成。用不用 Obsidian 都可以。
+写给文献堆满硬盘、论点还没完全成形的研究者。
 
 ![macOS](https://img.shields.io/badge/macOS-Apple_Silicon_%7C_Intel-000000?style=flat-square&logo=apple&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=flat-square&logo=windows&logoColor=white)
@@ -20,13 +20,17 @@
 
 </div>
 
+硬盘里存了几百篇文献，写引言或讨论时却还是抓耳挠腮：脑子里有一个模糊的论点，却不知道该去哪篇文献、哪一段、哪一句里找依据。用关键词搜，常常因为原文换了说法而搜不到；一篇篇打开 PDF 翻，又要花上好几个小时。
+
+QuoteSight 先把你电脑上的 PDF 按关键词和意思建好索引，再让你常用的 AI agent（Claude Code 或 Codex）拿着你那个还不太清楚的论点去检索，把支持或反驳它的原句挑出来。每句原文都能在 PDF 原页上高亮打开，方便和原文对照。
+
 https://github.com/user-attachments/assets/5e7a2aed-259a-4060-b3ab-354cf21326fa
 
-QuoteSight 读取一个文件夹里的所有 PDF，把文字切成段落，建两套索引：一套按关键词，一套按意思。你可以在本地网页（看板）里搜，也可以在命令行里搜，还可以让 Claude Code、Codex 这类 coding agent 替你搜。
-
-- **简单**：运行一个安装脚本，回答四个问题，然后双击 *Start* 就能用。
-- **准**：可以让 coding agent 读检索到的段落，挑出原句，标成*支持*、*反驳*或*背景*，QuoteSight 再把每句和 PDF 原文核对一遍。
-- **私密**：PDF、笔记和索引都留在你的电脑上，你的文件只读不改。
+- **从模糊的想法出发**：像平时说话那样写下论点，agent 会把它拆成几条具体的检索。
+- **省 token**：文献库先建好了索引，agent 只读最相关的几十段，不用把整篇 PDF 读进去。一次完整的搜索，用的 token 往往比让 agent 读一篇长论文还少。
+- **每句都能核对**：QuoteSight 把每句引文和 PDF 原文逐字比对，对不上的标为*未核验*。
+- **文件留在本地**：索引存在你的电脑上，PDF 只读不改。只有精准搜索会把你的论点和挑出的段落发给 Anthropic 或 OpenAI。
+- **安装简单**：运行一个安装脚本，回答四个问题，然后双击 *Start*。
 
 ## 开始前的选择
 
@@ -36,7 +40,7 @@ QuoteSight 读取一个文件夹里的所有 PDF，把文字切成段落，建�
 |---|---|---|
 | **1. 你的系统** | macOS 或 Windows | 自动识别 |
 | **2. 用哪个 coding agent** 做精准搜索 | Claude Code、Codex，或者不用 | 你平时在用的那个。不用的话，快速搜索照样能用 |
-| **3. PDF 放在哪里** | 任意文件夹，包括子文件夹 | 你平时放文献的文件夹。如果它在 Obsidian 的 vault 里，每篇 PDF 会自动关联到对应的笔记 |
+| **3. PDF 放在哪里** | 任意文件夹，包括子文件夹 | 你平时放文献的文件夹 |
 | **4. 索引放在哪里** | 任意文件夹 | 默认位置（QuoteSight 文件夹里的 `data`）。不要放在 PDF 文件夹里，也不要放在云同步的文件夹里 |
 
 需要大约 3 GB 硬盘空间（Python 依赖和 embedding 模型），索引每 100 篇文献约 30 MB。
@@ -97,7 +101,7 @@ QuoteSight 直接用你现有的登录和订阅，不需要 API key。
 双击 *Start*（或者运行 `quotesight-app`），输入一个观点或话题，回车。
 
 - **左栏**：一段简短的总结，下面是文章列表，可以按*支持*、*反驳*、*背景*筛选。
-- **中栏**：选中文章里挑出的原句，每句附一句说明；还有打开 PDF 的按钮（用 Obsidian 的话，是在 Obsidian 里打开笔记和 PDF）。
+- **中栏**：选中文章里挑出的原句，每句附一句说明；还有按钮可以在 PDF 阅读器或浏览器里打开 PDF。
 - **右栏**：PDF 原页，那句原文高亮显示。
 - **顶部状态栏**：模型和 effort，这次搜索用了多少 token，以及 5 小时和 7 天额度还剩多少（只有 Claude 有）。
 
@@ -137,7 +141,7 @@ quotesight update                                                      # 加入�
 2. **查重**：如果一个 PDF 一半以上的段落已经属于另一个 PDF，QuoteSight 只保存一份，并列出它的其他位置。
 3. **两套索引**：关键词索引（SQLite FTS5，BM25 排序）负责精确的名称和术语；语义索引用 [nomic-embed-text-v1.5](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5) 生成的向量，负责找到换了说法但意思相同的段落。embedding 模型在你的电脑上运行，可以用 Apple 芯片、NVIDIA 显卡或处理器。
 4. **检索**：一个查询同时走两套索引，两个排名用 reciprocal rank fusion 合并。文章旁边的百分比是它在这次结果里的相对分数，用来比较文章，不是概率。
-5. **标题和作者**：QuoteSight 从前两页找到 DOI，去 [Crossref](https://www.crossref.org/) 查询，只有查回来的标题能在 PDF 里找到才采用。查不到时，用 Obsidian 笔记里的属性或文件名。
+5. **标题和作者**：QuoteSight 从前两页找到 DOI，去 [Crossref](https://www.crossref.org/) 查询，只有查回来的标题能在 PDF 里找到才采用。查不到时，用文件名。
 6. **精准搜索**：coding agent 把你的输入拆成 2 到 4 条具体的查询，QuoteSight 去检索，把约 30 段交给 agent。agent 挑出原句，每句标上立场并写一句说明。QuoteSight 再把每句和原文核对，对不上的标为*未核验*。agent 只拿到文字，没有任何工具，也不能读写文件。提示词是 `quotesight/prompts/` 里的 Markdown 文件，可以按你的领域修改。
 7. **高亮**：[pdf.js](https://mozilla.github.io/pdf.js/) 渲染页面的文字层，原句在文字层里逐字定位，所以高亮可以从一行的中间开始、在中间结束。有些老 PDF 的字体编码会让文字层变成乱码，这时看板会提示这一页没法高亮。
 
@@ -146,9 +150,10 @@ quotesight update                                                      # 加入�
 安装向导把 `config.toml` 写到 `~/.config/quotesight/`（macOS）或 `%APPDATA%\quotesight\`（Windows）。重新运行 `quotesight setup` 可以修改主要选项，也可以直接编辑这个文件，[`config.example.toml`](config.example.toml) 里有每个选项的说明。最可能要改的几项：
 
 - **主题文件夹**：PDF 文件夹下的第一层子文件夹会成为可以筛选的主题。`topic_pattern` 可以只索引名字符合规则的文件夹。
-- **Obsidian**：笔记通过 `[[file.pdf]]` 链接和 PDF 对应，所以 Obsidian 的附件文件夹设成哪里都不影响。`skip_note_prefixes` 可以跳过索引类或总结类笔记。
 - **Agent 的模型和 effort**：`claude_model`、`claude_effort`、`codex_model`、`codex_effort`（默认 Sonnet，medium）。
 - **文献库描述**：一句话说明你的领域，会写进给 agent 的提示词。
+
+QuoteSight 不接入笔记软件。如果想从结果直接打开自己的笔记（比如 Obsidian），可以让你的 coding agent 加一个按钮；看板只有一个文件，`quotesight/static/index.html`。
 
 ## 体积与速度
 
@@ -164,7 +169,7 @@ quotesight update                                                      # 加入�
 
 ## 数据与隐私
 
-- **本地**：PDF、笔记和索引只存在你的电脑上，看板也只有你的电脑能访问（`127.0.0.1`）。
+- **本地**：PDF 和索引只存在你的电脑上，看板也只有你的电脑能访问（`127.0.0.1`）。
 - **Crossref** 只收到 DOI 和简短的标题文字；只有你在设置里填了邮箱，才会附上邮箱。
 - **精准搜索**会把你的输入和挑出的段落发给 Anthropic 或 OpenAI，按你账户的条款处理。快速搜索什么都不发送。
 - **数据文件夹**（你选的索引位置）：`index.sqlite` 是索引，`history/` 里是每次精准搜索的结果。删掉这个文件夹就能从头开始。

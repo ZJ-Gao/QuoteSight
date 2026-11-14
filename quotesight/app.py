@@ -40,7 +40,7 @@ def index():
 @app.get("/api/config")
 def api_config():
     cfg = config.get()
-    return {"obsidian": cfg.obsidian_enabled, "backend": cfg["llm"]["backend"],
+    return {"backend": cfg["llm"]["backend"],
             "models": {"claude": cfg["llm"]["claude_model"], "codex": cfg["llm"]["codex_model"] or "default"},
             "ui_language": cfg["app"].get("ui_language", "en"),
             "effort": cfg["llm"][f"{cfg['llm']['backend']}_effort"] if cfg["llm"]["backend"] in llm.BACKENDS else None}
@@ -150,7 +150,7 @@ def pdf(pid: int):
 
 @app.post("/api/open/{pid}")
 def open_pdf(pid: int):
-    """Open the PDF in the system's default viewer (used when Obsidian is off)."""
+    """Open the PDF in the system's default viewer."""
     path = _pdf_path(pid)
     if sys.platform.startswith("win"):
         os.startfile(path)

@@ -21,13 +21,8 @@ DEFAULTS = {
         "roots": [],
         "topics": "subfolder",
         "topic_pattern": "",
-        "exclude": [".obsidian", ".trash", ".git", "node_modules"],
+        "exclude": [".trash", ".git", "node_modules"],
         "description": "research papers",
-    },
-    "obsidian": {
-        "enabled": False,
-        "vault": "",
-        "skip_note_prefixes": [],
     },
     "index": {
         "data_dir": "./data",
@@ -101,18 +96,7 @@ class Config:
 
     @property
     def roots(self):
-        roots = [self.resolve(r) for r in self["library"]["roots"]]
-        if not roots and self.obsidian_enabled and self["obsidian"]["vault"]:
-            roots = [self.resolve(self["obsidian"]["vault"])]
-        return roots
-
-    @property
-    def obsidian_enabled(self):
-        return bool(self["obsidian"]["enabled"] and self["obsidian"]["vault"])
-
-    @property
-    def vault(self):
-        return self.resolve(self["obsidian"]["vault"]) if self.obsidian_enabled else None
+        return [self.resolve(r) for r in self["library"]["roots"]]
 
     @property
     def data_dir(self):

@@ -208,8 +208,7 @@ const ZH = {
   "quotes": "句", "searching…": "搜索中…", "quick search…": "快速检索中…", "done (quick mode, no LLM)": "完成（快速模式，没有用大模型）",
   "starting": "启动", "Searching:": "正在检索：", "error": "出错", "Error: ": "出错：",
   "No passage bears directly on this input": "没有找到直接相关的原文", "Queries: ": "检索：",
-  "Obsidian note": "Obsidian 笔记", "no note": "没有笔记", "No note links to this PDF": "没有笔记链接到这个 PDF",
-  "Obsidian PDF": "Obsidian PDF", "Open PDF": "打开 PDF", "PDF in browser": "浏览器里看 PDF",
+  "Open PDF": "打开 PDF", "PDF in browser": "浏览器里看 PDF",
   "unverified": "未核验", "This quote was not found word for word in the passage; check it": "这句没能在原文里逐字找到，请核对",
   "‹ prev": "‹ 上一页", "next ›": "下一页 ›", "loading PDF…": "加载 PDF…", "page": "第", "of": "/",
   "the text layer of this page could not be matched, so nothing is highlighted": "这页 PDF 的文字层无法对齐，没能高亮",
@@ -293,7 +292,7 @@ function setHud(h) {
   $("#h-app").textContent = fmtK(h.app_tokens || 0);
   $("#h-n").textContent = h.app_searches || 0;
 }
-let CFG = {obsidian: false, backend: "claude", models: {}, effort: null};
+let CFG = {backend: "claude", models: {}, effort: null};
 function setModelLabel(b) {
   $("#h-model").textContent = b === "fast" ? t("no LLM") : (b === "claude" ? "Claude " : "Codex ") + (CFG.models[b] || "");
   $("#h-effort").textContent = b === "fast" ? t("quick") : (CFG.effort || t("default"));
@@ -418,8 +417,7 @@ function selectPaper(i) {
     ${p.authors ? `<div class="auth">${esc(authLong(p.authors))}</div>` : ""}
     <div class="sub">${p.journal ? "<i>" + esc(p.journal) + "</i> · " : ""}${p.year ? esc(p.year) + " · " : ""}${p.doi ? `<a href="https://doi.org/${esc(p.doi)}" target="_blank">doi:${esc(p.doi)}</a> · ` : ""}${esc(p.file)} · ${esc(short(p.folder))}</div>
     <div class="actions">
-      ${CFG.obsidian ? (p.note ? `<button id="obs">${t("Obsidian note")}</button>` : `<button disabled title="${t("No note links to this PDF")}">${t("no note")}</button>`) + `<button id="obspdf">${t("Obsidian PDF")}</button>`
-        : `<button id="syspdf">${t("Open PDF")}</button><button id="tabpdf">${t("PDF in browser")}</button>`}
+      ${`<button id="syspdf">${t("Open PDF")}</button><button id="tabpdf">${t("PDF in browser")}</button>`}
     </div>
     ${curPaper.findings.map((f, k) => `
       <div class="finding ${f.stance}" data-k="${k}">
@@ -428,14 +426,8 @@ function selectPaper(i) {
         <div class="quote">${esc(cleanMd(f.quote))}</div>
         ${f.note ? `<div class="note">${esc(f.note)}</div>` : ""}
       </div>`).join("")}`;
-  const obs = path => location.href = "obsidian://open?path=" + encodeURIComponent(path);
-  if (CFG.obsidian) {
-    if (p.note) $("#obs").onclick = () => obs(p.note);
-    $("#obspdf").onclick = () => obs(p.pdf);
-  } else {
-    $("#syspdf").onclick = () => fetch(`/api/open/${p.id}`, {method: "POST"});
-    $("#tabpdf").onclick = () => window.open(`/pdf/${p.id}#page=${curPaper.findings[0].page}`, "_blank");
-  }
+  $("#syspdf").onclick = () => fetch(`/api/open/${p.id}`, {method: "POST"});
+  $("#tabpdf").onclick = () => window.open(`/pdf/${p.id}#page=${curPaper.findings[0].page}`, "_blank");
   document.querySelectorAll(".finding").forEach(e => e.onclick = () => showFinding(+e.dataset.k));
   showFinding(0);
 }

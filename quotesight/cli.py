@@ -79,8 +79,7 @@ def doctor():
     for r in cfg.roots or []:
         print(f"library root     : {ok(r.is_dir())} {r}")
     if not cfg.roots:
-        print("library root     : MISSING  set [library] roots, or [obsidian] enabled + vault")
-    print(f"obsidian         : {'on, vault ' + str(cfg.vault) if cfg.obsidian_enabled else 'off'}")
+        print("library root     : MISSING  set [library] roots in the config file")
     print(f"data folder      : {cfg.data_dir}")
     for mod in ("pdf_inspector", "sentence_transformers", "fastapi", "numpy"):
         try:
@@ -137,15 +136,11 @@ def setup(target="config.toml"):
         backend = "none"
 
     print("\n3. The folder that holds your PDFs (subfolders are included).")
-    print("   If it is an Obsidian vault, QuoteSight also links each PDF to its note.")
     while True:
         lib = Path(_ask("   PDF folder").strip('"').strip("'")).expanduser()
         if lib.is_dir():
             break
         print(f"   Not a folder: {lib}")
-    vault = next((p for p in [lib, *lib.parents] if (p / ".obsidian").is_dir()), None)
-    if vault:
-        print(f"   Obsidian vault found: {vault}")
 
     default_data = repo / "data"
     print("\n4. Where to keep the index (about 30 MB per 100 papers). Keep it outside the PDF folder and outside")
@@ -159,8 +154,6 @@ def setup(target="config.toml"):
     import re as _re
     sub = lambda key, val, t: _re.sub(rf"(?m)^{key} = .*$", lambda m: f"{key} = {val}", t, count=1)
     text = sub("roots", f"[{_toml_path(lib)}]", text)
-    text = sub("enabled", "true" if vault else "false", text)
-    text = sub("vault", _toml_path(vault) if vault else '""', text)
     text = sub("data_dir", _toml_path(data), text)
     text = sub("backend", f'"{backend}"', text)
     text = sub("language", '"Chinese"' if lang == "zh" else '"English"', text)
