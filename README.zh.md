@@ -90,6 +90,8 @@ https://github.com/user-attachments/assets/5e7a2aed-259a-4060-b3ab-354cf21326fa
 
 QuoteSight 直接用你现有的登录和订阅，不需要 API key。
 
+想换成别的服务商（比如 Gemini、通过 Ollama 跑的本地模型，或者用 API key），把 [`prompts/add_model.md`](prompts/add_model.md) 的内容贴进你的 coding agent，它会加好新的后端并测试。如果只是在 Claude 或 Codex 的不同模型之间切换，改设置里的 `claude_model` 或 `codex_model` 就行。
+
 ### 让 agent 帮你安装
 
 不想自己敲命令的话，在 QuoteSight 文件夹里打开 Claude Code 或 Codex，把 [`prompts/setup_with_ai.md`](prompts/setup_with_ai.md) 的内容贴进去。agent 每一步都会先问你：安装 QuoteSight、和你一起回答安装问题、建索引并测试。

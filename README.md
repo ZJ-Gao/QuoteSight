@@ -90,6 +90,8 @@ For the precise search, install one of these and log in once from a terminal:
 
 QuoteSight uses your existing login or subscription, so you need no API key.
 
+To use another provider instead (for example Gemini, a local model through Ollama, or an API key), paste [`prompts/add_model.md`](prompts/add_model.md) into your coding agent. It adds the new backend and tests it. To switch between Claude or Codex models, change `claude_model` or `codex_model` in the settings instead.
+
 ### Let your agent install it
 
 Prefer not to use the terminal yourself? Open Claude Code or Codex in the QuoteSight folder and paste [`prompts/setup_with_ai.md`](prompts/setup_with_ai.md). The agent asks before each step as it installs QuoteSight, goes through the setup questions with you, and builds and tests the index.

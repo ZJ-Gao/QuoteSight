@@ -168,7 +168,10 @@ def call_codex(system, user, schema, usage, emit):
     return _json_from_text(text)
 
 
+# To add a model or provider: write call_<name>(system, user, schema, usage, emit) like the two above,
+# register it here, and add <name>_model / <name>_effort to [llm] in the config. See prompts/add_model.md.
 BACKENDS = {"claude": call_claude, "codex": call_codex}
+LABELS = {"claude": "Claude", "codex": "Codex"}
 
 
 def _norm(s):
@@ -233,7 +236,7 @@ def run(text, backend=None, on_event=None, language=None):
                              "note": f.get("note", ""), "verified": verify(f["quote"], row["text"]),
                              "passage": row["text"], "paper": core.paper_info(row)})
     res = {"ok": True, "claim": text, "kind": kind, "backend": backend, "model_name": usage.model,
-           "effort": cfg["llm"][f"{backend}_effort"], "summary": out.get("summary", ""), "queries": queries,
+           "effort": cfg["llm"].get(f"{backend}_effort"), "summary": out.get("summary", ""), "queries": queries,
            "findings": findings, "n_passages": len(passages), "tokens": dict(usage.tokens, total=usage.total()),
            "cost_usd_list_price": round(usage.cost, 4), "limits": usage.limits,
            "seconds": round(time.time() - t0, 1), "time": time.time()}

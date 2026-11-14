@@ -41,9 +41,10 @@ def index():
 def api_config():
     cfg = config.get()
     return {"backend": cfg["llm"]["backend"],
-            "models": {"claude": cfg["llm"]["claude_model"], "codex": cfg["llm"]["codex_model"] or "default"},
+            "backends": [{"name": n, "label": llm.LABELS.get(n, n.title())} for n in llm.BACKENDS],
+            "models": {n: cfg["llm"].get(f"{n}_model") or "default" for n in llm.BACKENDS},
             "ui_language": cfg["app"].get("ui_language", "en"),
-            "effort": cfg["llm"][f"{cfg['llm']['backend']}_effort"] if cfg["llm"]["backend"] in llm.BACKENDS else None}
+            "effort": cfg["llm"].get(f"{cfg['llm']['backend']}_effort")}
 
 
 @app.post("/api/ask")

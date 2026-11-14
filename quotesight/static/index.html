@@ -150,8 +150,6 @@ body.dragging iframe, body.dragging canvas { pointer-events: none; }
   <select id="theme" title="Theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
   <input id="q" type="text" placeholder="Type a claim or a topic and press Enter" autofocus>
   <select id="mode" title="How to search">
-    <option value="claude">Claude (precise, ~30 s)</option>
-    <option value="codex">Codex (precise, ~30 s)</option>
     <option value="fast">Quick (no LLM, ~1 s)</option>
   </select>
   <button class="primary" id="go">Search</button>
@@ -218,7 +216,7 @@ const ZH = {
   "planning queries": "正在拆分查询", "searching": "正在检索", "reading": "正在阅读", "queued": "排队中",
   "Type a claim or a topic and press Enter": "写一个观点或话题，回车",
   "How to search": "检索方式", "Claude (precise, ~30 s)": "Claude 精准（约 30 秒）", "Codex (precise, ~30 s)": "Codex 精准（约 30 秒）",
-  "Quick (no LLM, ~1 s)": "快速（不用大模型，约 1 秒）", "Search": "搜索", "Update index": "更新索引",
+  "Quick (no LLM, ~1 s)": "快速（不用大模型，约 1 秒）", "precise, ~30 s": "精准，约 30 秒", "Search": "搜索", "Update index": "更新索引",
   "Add new or changed PDFs to the index": "把新增或改动的 PDF 加进索引", "ready": "就绪", "this search": "本次",
   "session": "累计", "searches": "次", "History": "历史", "Filter: claim, quote, file name": "搜索历史：观点、原句、文件名",
   "Type a claim or topic to start": "写一个观点或话题开始搜索", "Pick a paper on the left to see its quotes": "左边选一篇文章，这里显示挑出的原句",
@@ -260,6 +258,10 @@ function setLang(l) {
   try { localStorage.setItem("quotesightLang", LANG); } catch (e) {}
   translateStatic();
   renderEmpty();
+  document.querySelectorAll("#mode option").forEach(o => {
+    const b = (CFG.backends || []).find(x => x.name === o.value);
+    if (b) o.textContent = `${b.label} (${t("precise, ~30 s")})`;
+  });
   setModelLabel($("#mode").value);
   if (typeof setHist === "function") setHist(!$("#hbody").hidden);
   if (res) { renderList(); if (curPaper) selectPaper(papers.indexOf(curPaper)); }
@@ -294,7 +296,8 @@ function setHud(h) {
 }
 let CFG = {backend: "claude", models: {}, effort: null};
 function setModelLabel(b) {
-  $("#h-model").textContent = b === "fast" ? t("no LLM") : (b === "claude" ? "Claude " : "Codex ") + (CFG.models[b] || "");
+  const lab = (CFG.backends || []).find(x => x.name === b);
+  $("#h-model").textContent = b === "fast" ? t("no LLM") : (lab ? lab.label : b) + " " + (CFG.models[b] || "");
   $("#h-effort").textContent = b === "fast" ? t("quick") : (CFG.effort || t("default"));
 }
 fetch("/api/config").then(r => r.json()).then(c => {
@@ -302,7 +305,13 @@ fetch("/api/config").then(r => r.json()).then(c => {
   let l = c.ui_language;
   try { l = localStorage.getItem("quotesightLang") || l; } catch (e) {}
   setLang(l);
-  if (["claude", "codex"].includes(c.backend)) $("#mode").value = c.backend; else $("#mode").value = "fast";
+  const fastOpt = $("#mode").querySelector('option[value="fast"]');
+  for (const b of c.backends || []) {
+    const o = document.createElement("option");
+    o.value = b.name; o.textContent = `${b.label} (${t("precise, ~30 s")})`;
+    $("#mode").insertBefore(o, fastOpt);
+  }
+  $("#mode").value = (c.backends || []).some(b => b.name === c.backend) ? c.backend : "fast";
   setModelLabel($("#mode").value);
   fetch("/api/hud").then(r => r.json()).then(setHud);
 });

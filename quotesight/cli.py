@@ -129,10 +129,12 @@ def setup(target="config.toml"):
     system = {"Darwin": "macOS", "Windows": "Windows"}.get(platform.system(), platform.system())
     print(f"\n1. System: {system} (detected)")
 
-    found = [x for x in ("claude", "codex") if shutil.which(x)]
+    from . import llm
+    names = list(llm.BACKENDS)
+    found = [x for x in names if shutil.which(x)]
     print(f"\n2. Coding agent for the precise search. Found on this computer: {', '.join(found) or 'none'}")
-    backend = _ask("   claude / codex / none", found[0] if found else "none").lower()
-    if backend not in ("claude", "codex", "none"):
+    backend = _ask("   " + " / ".join(names + ["none"]), found[0] if found else "none").lower()
+    if backend not in names + ["none"]:
         backend = "none"
 
     print("\n3. The folder that holds your PDFs (subfolders are included).")
