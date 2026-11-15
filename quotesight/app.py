@@ -11,7 +11,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 
-from . import config, core, llm
+from . import config, core, llm, rank
 
 HERE = Path(__file__).parent
 app = FastAPI()
@@ -66,6 +66,10 @@ def api_ask(body: dict):
         max_findings = max(1, min(int(body.get("max") or 20), 20))
     except (TypeError, ValueError):
         max_findings = 20
+    try:
+        per_paper = max(1, min(int(body.get("per") or 5), 10))
+    except (TypeError, ValueError):
+        per_paper = 5
     if not q:
         raise HTTPException(400)
     jid = str(len(asks) + 1)
@@ -86,9 +90,18 @@ def api_ask(body: dict):
     def go():
         with llm_lock:
             try:
-                res = llm.run(q, backend=backend, on_event=on_event, language=language, max_findings=max_findings, depth=depth)
+                res = llm.run(q, backend=backend, on_event=on_event, language=language, max_findings=max_findings, depth=depth, per_paper=per_paper)
             except Exception as ex:
                 res = {"ok": False, "error": str(ex)}
+            if res.get("ok"):
+                try:
+                    with lock:
+                        llm.repair_findings(res)
+                        llm.score_papers(res)
+                        res["rank"] = rank.paper_rank(res)
+                    llm.rewrite_history(res)
+                except Exception:
+                    pass
             j["result"] = res
             if res.get("tokens"):
                 hud["app_tokens"] += res["tokens"].get("total", 0)
@@ -131,6 +144,35 @@ def api_fast(q: str, folder: str = ""):
 @app.get("/api/history")
 def api_history(archived: bool = False):
     return llm.list_history(archived)
+
+
+@app.post("/api/history/{hid}/boost")
+def api_history_boost(hid: str, body: dict):
+    d = llm.load_history(hid)
+    if not d:
+        raise HTTPException(404)
+    ids = [x for x in d.get("boosted", []) if x != body.get("paper_id")]
+    if body.get("on"):
+        ids.append(body.get("paper_id"))
+    d["boosted"] = ids
+    llm.rewrite_history(dict(d, history_id=hid))
+    return {"ok": True}
+
+
+@app.post("/api/history/{hid}/extend")
+def api_history_extend(hid: str, body: dict):
+    """Save quotes the user added from the extra papers into that search's history file."""
+    d = llm.load_history(hid)
+    if not d:
+        raise HTTPException(404)
+    have = {f["chunk_id"] for f in d.get("findings", [])}
+    for f in body.get("findings") or []:
+        if f.get("chunk_id") not in have:
+            f = dict(f, added=True)
+            f.pop("extra", None)
+            d["findings"].append(f)
+    llm.rewrite_history(dict(d, history_id=hid))
+    return {"ok": True}
 
 
 @app.post("/api/history/{hid}/{action}")
@@ -189,7 +231,72 @@ def api_history_get(hid: str):
     d = llm.load_history(hid)
     if not d:
         raise HTTPException(404)
+    if any(f.get("passage") and not llm.verify(f["quote"], f["passage"]) for f in d.get("findings", [])):
+        with lock:
+            llm.repair_findings(d)
+        llm.rewrite_history(dict(d, history_id=hid))
+    for f in d.get("findings", []):
+        if f.get("passage"):
+            f["verified"] = llm.verify(f["quote"], f["passage"])
+    if d.get("findings") and d.get("claim"):
+        with lock:
+            n0 = len(d.get("paper_scores") or {})
+            d["rank"] = rank.paper_rank(d)
+        if len(d.get("paper_scores") or {}) != n0:
+            llm.rewrite_history(dict(d, history_id=hid))
     return d
+
+
+@app.get("/api/rank/{hid}")
+def api_rank(hid: str):
+    d = llm.load_history(hid)
+    if not d:
+        raise HTTPException(404)
+    with lock:
+        n0 = len(d.get("paper_scores") or {})
+        rk = rank.paper_rank(d)
+    if len(d.get("paper_scores") or {}) != n0:
+        llm.rewrite_history(dict(d, history_id=hid))
+    return {"rank": rk, "paper_scores": d.get("paper_scores")}
+
+
+@app.get("/api/more")
+def api_more(q: str, exclude: str = "", n: int = 15):
+    """Papers ranked below the ones the model read: key sentences by the embedding model, no tokens."""
+    skip = {int(x) for x in exclude.split(",") if x.strip().isdigit()}
+    with lock:
+        res = core.search(q, limit=80, by_paper=True, per_paper=2)
+        rows = [r for r in res["results"] if r["paper"]["id"] not in skip][:max(1, min(n, 30))]
+        ids = [h["chunk_id"] for r in rows for h in r["passages"]]
+        keys = core.key_sentences(q, ids) if ids else {}
+    findings = []
+    for r in rows:
+        for h in r["passages"]:
+            ks = [s["text"] for s in keys.get(h["chunk_id"], []) if s["key"]]
+            findings.append({"chunk_id": h["chunk_id"], "page": h["page"], "quote": " ".join(ks) or h["passage"][:400],
+                             "stance": "match", "note": "", "verified": True, "passage": h["passage"],
+                             "paper": r["paper"], "extra": True})
+    return {"ok": True, "findings": findings}
+
+
+@app.post("/api/addpaper")
+def api_addpaper(body: dict):
+    """The model reads one whole paper against the claim; the result is saved into that search's history."""
+    claim = (body.get("claim") or "").strip()
+    language = {"zh": "Chinese", "en": "English"}.get(body.get("lang"))
+    try:
+        pid = int(body.get("paper_id"))
+        per = max(0, min(int(body.get("per", 5)), 20))  # 0 = the model decides
+    except (TypeError, ValueError):
+        raise HTTPException(400)
+    if not claim:
+        raise HTTPException(400)
+    have = [str(q) for q in (body.get("have") or [])][:30]
+    with llm_lock:
+        r = llm.read_paper(claim, pid, backend=body.get("backend") or None, language=language, per_paper=per, have=have)
+    if r.get("ok") and body.get("hid"):
+        api_history_extend(body["hid"], {"findings": r["findings"]})
+    return r
 
 
 @app.get("/api/hud")

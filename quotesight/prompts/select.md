@@ -13,7 +13,7 @@ Rules for findings:
 - stance: "support", "refute" or "context" (a qualification, condition or mechanism needed to judge the input).
 - note: one short sentence in {language} saying how this quote bears on the input.
 - relevance: "high" (the quote directly states, tests or contradicts the input), "medium" (it bears on the input with a condition, a partial match or a related mechanism), "low" (same topic, only indirectly useful).
-- At most {max_findings} findings and at most 3 per paper, ordered from most to least relevant. Fewer is fine; return none rather than off-topic ones.
+- Findings come from at most {max_findings} different papers and at most {per_paper} quotes per paper. Order papers from most to least relevant, and within a paper by relevance. Fewer is fine; return none rather than off-topic ones.
 - summary: two or three sentences in {language} on what the passages say about the input overall. Do not restate the input as a different question.
 
 Return only the JSON object.

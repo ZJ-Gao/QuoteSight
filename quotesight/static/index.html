@@ -20,9 +20,9 @@
   --sup: #2e7d4f; --sup-bg: #e2f2e8; --ref: #b3412f; --ref-bg: #f8e3df; --ctx: #7a6a1f; --ctx-bg: #f4eed3;
   --hl: rgba(255, 140, 0, .42);
   /* stance colors: RGB triplet + highlight opacity; the user can change them (PDF bar ⋯ → Colors) */
-  --c-support: 46, 160, 90; --a-support: .30;
-  --c-refute: 214, 72, 52; --a-refute: .28;
-  --c-context: 222, 180, 40; --a-context: .38;
+  --c-support: 46, 160, 90; --a-support: .20;
+  --c-refute: 214, 111, 154; --a-refute: .20;
+  --c-context: 254, 200, 47; --a-context: .36;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -75,7 +75,9 @@ body.nohints .hhint { display: none; }
 #skeys summary { cursor: pointer; color: var(--ink); font-size: 12.5px; }
 #skeys ul { margin: 6px 0 0; padding-left: 16px; color: var(--muted); font-size: 11.5px; line-height: 1.6; }
 #skeys kbd { font: 10.5px/1 "SF Mono", Menlo, Consolas, monospace; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 1px 4px; margin-right: 2px; background: var(--bg); color: var(--ink); }
-#settings .shint { color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+#settings .shint { color: var(--muted); font-size: 11.5px; line-height: 1.45; margin: 8px 0 0; padding-left: 16px; }
+#settings .shint li { margin-bottom: 4px; }
+#settings .shint b { font-weight: 600; color: var(--ink); }
 .rel { font-size: 11px; color: var(--muted); }
 .rel.high { color: var(--accent); font-weight: 600; }
 .rel { font-size: 11px; color: var(--muted); }
@@ -157,6 +159,17 @@ body.dragging iframe, body.dragging canvas { pointer-events: none; }
 .filters button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .card { padding: 9px 11px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; margin-bottom: 3px; }
 .card:hover { background: var(--sel); }
+.card.extra { opacity: .85; border-left: 2px dashed var(--line); }
+.moreh { color: var(--muted); font-size: 11.5px; margin: 10px 4px 4px; }
+#moreBtn { margin: 10px 4px; width: calc(100% - 8px); }
+.xadd { margin-left: auto; padding: 1px 8px; font-size: 11.5px; border-radius: 10px; }
+.rk { margin-left: auto; font-size: 11px; color: var(--muted); }
+.rk.star { margin-left: 0; color: #d9a400; font-size: 13px; }
+.rk.mv { margin-left: 4px; font-weight: 600; }
+.rk.mv.up { color: #2e8b57; }
+.rk.mv.down { color: #c0392b; }
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 60; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--hud-shadow); padding: 8px 14px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s; }
+#toast.on { opacity: 1; }
 .card.sel { background: var(--sel); border-color: var(--line); }
 .card .t { font-weight: 600; font-size: 13px; line-height: 1.35; }
 .card .f { color: var(--muted); font-size: 11.5px; margin-top: 2px; word-break: break-all; }
@@ -291,7 +304,8 @@ body.dragging iframe, body.dragging canvas { pointer-events: none; }
     <div id="settings" hidden>
       <label><span>Theme</span><select id="theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
       <label><span>Language</span><button id="lang" type="button">EN</button></label>
-      <label><span>Max quotes</span><select id="smax"><option>10</option><option>15</option><option selected>20</option></select></label>
+      <label><span>Max papers</span><select id="smax"><option>10</option><option>15</option><option selected>20</option></select></label>
+      <label><span>Max quotes per paper</span><select id="sper"><option>1</option><option selected>5</option><option>10</option></select></label>
       <label><span>Min relevance</span><select id="srel"><option value="high">High</option><option value="medium" selected>Medium</option><option value="low">Low (all)</option></select></label>
       <label><span>Shortcut hints</span><input id="shints" type="checkbox" checked title="Show &quot;press Esc twice to close&quot; when hovering over History"></label>
       <label><span>Index</span><button id="upd" type="button" title="Add new or changed PDFs to the index">Update index</button></label>
@@ -304,7 +318,11 @@ body.dragging iframe, body.dragging canvas { pointer-events: none; }
           <li>PDF bar ⋯ → Colors and opacity: change the stance colors</li>
         </ul>
       </details>
-      <div class="shint">Max quotes: how many quotes the LLM picks at most (up to 20). Min relevance: show only quotes at or above this level; applies at once, no new search.</div>
+      <ul class="shint">
+        <li><b>Max papers</b>: the most relevant papers the agent picks (up to 20)</li>
+        <li><b>Max quotes per paper</b>: the most quotes shown from each paper, ranked by relevance</li>
+        <li><b>Min relevance</b>: show only quotes at or above this level; applies at once, no new search</li>
+      </ul>
     </div>
   </div>
   <input id="q" type="text" placeholder="Type a claim or a topic and press Enter" autofocus>
@@ -388,10 +406,19 @@ const ZH = {
   "No saved searches": "没有记录", "drag to resize, double-click to reset": "拖动调整宽度，双击恢复",
   "Claude account, 5-hour window: share used (time to reset / window). Includes your other Claude use.": "Claude 账户 5 小时窗口：已用比例（距重置 / 窗口长度），含你在别处使用 Claude 的用量",
   "Claude account, 7-day window": "Claude 账户 7 天窗口", "Language": "语言",
-  "Settings": "设置", "Index": "索引", "Max quotes": "最多返回", "Min relevance": "最低相关度",
+  "Overall relevance: whole-paper retrieval share, the model's quote relevance (plus similarity adjusted toward the papers you marked), each scaled to 0 to 1, averaged and multiplied by 10": "综合相关度：整篇检索占比、大模型对句子的相关度（有标记时再加上按你标记的文章调整后的相似度）各自换算到 0 到 1，取平均后乘 10",
+  "More related papers (not screened by the model)": "更多相关文章（没经过大模型筛选）", "More related papers": "看更多相关文章", "Even more related papers": "再看更多相关文章",
+  "Add to results": "加入结果", "Could not add: ": "添加失败：", "no response": "没有响应",
+  "The model is reading this paper and judging support, refute or context…": "大模型正在读这篇，判断支持、反驳还是背景…",
+  "Read it: no directly relevant quotes, so it was not added": "读完了，这篇里没有直接相关的原文，没有加入", "Added to results: ": "已加入结果：",
+  "The model is reading more quotes…": "大模型正在多读几句…", "No more relevant quotes in this paper": "没有更多相关句子了", "Added": "新增",
+  "Read more quotes": "读更多句子", "auto": "自动", "Enter how many more quotes to look for, or leave empty to let the model decide": "想多读几句就填数字，留空让大模型自己决定",
+  "★ More important than ranked": "★ 比排名更重要", "★ Unmark": "★ 取消标记",
+  "Settings": "设置", "Index": "索引", "Max papers": "最多篇数", "Max quotes per paper": "每篇最多句数", "Min relevance": "最低相关度",
   "High": "高", "Medium": "中", "Low (all)": "低（全部）", "high relevance": "高相关", "medium relevance": "中相关", "low relevance": "低相关",
-  "Max quotes: how many quotes the LLM picks at most (up to 20). Min relevance: show only quotes at or above this level; applies at once, no new search.":
-    "最多返回：大模型精准检索最多挑几句（上限 20）。最低相关度：只显示达到这一级的原句，改了立即生效，不用重新搜索。",
+  ": the most relevant papers the agent picks (up to 20)": "：大模型最多挑几篇相关文章（上限 20）",
+  ": the most quotes shown from each paper, ranked by relevance": "：每篇文章最多显示几句原句，按相关度排序",
+  ": show only quotes at or above this level; applies at once, no new search": "：只显示达到这一级的原句，改了立即生效，不用重新搜索",
   "Shortcut hints": "快捷键提示", "Show \"press Esc twice to close\" when hovering over History": "鼠标移到「历史」时显示「双击 Esc 退出」",
   "Archived": "已归档", "← History": "← 返回历史", "Archive or delete": "归档或删除", "Archive": "归档", "Unarchive": "取消归档",
   "Delete": "删除", "Nothing archived": "没有归档的记录",
@@ -466,7 +493,7 @@ const fmtT = s => { const d = new Date(s * 1000); return d.toLocaleTimeString([]
 const left = t => { let m = Math.max(0, Math.round((t * 1000 - Date.now()) / 60000)); const h = Math.floor(m / 60); return `${h}h ${m % 60}m`; };
 let lastHud = null;
 setInterval(() => lastHud && setHud(lastHud), 60000);
-let res = null, papers = [], filter = "all", curPaper = null, pdfDoc = null, pdfId = null, pageNo = 1, histArch = false;
+let moreDone = false, res = null, papers = [], filter = "all", curPaper = null, pdfDoc = null, pdfId = null, pageNo = 1, histArch = false;
 
 function setHud(h) {
   if (!h) return;
@@ -575,7 +602,7 @@ async function search() {
   const [backend, dep] = mode.split(":");
   busy(true, t("starting") + " " + backend + "…");
   const {id} = await fetch("/api/ask", {method: "POST", headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({q, backend, depth: dep === "broad" ? "broad" : "standard", lang: LANG, max: +$("#smax").value})}).then(r => r.json());
+    body: JSON.stringify({q, backend, depth: dep === "broad" ? "broad" : "standard", lang: LANG, max: +$("#smax").value, per: +$("#sper").value})}).then(r => r.json());
   const poll = async () => {
     const j = await fetch("/api/ask/" + id).then(r => r.json());
     setHud(j.hud);
@@ -610,6 +637,9 @@ function show(r) {
     by.get(k).findings.push(f);
   }
   papers = [...by.values()];
+  moreDone = false;
+  if (r._extra) { papers.push(...r._extra.filter(x => !by.has(x.paper.id))); moreDone = true; }
+  sortPapers();
   filter = "all";
   renderList();
   if (papers.length) selectPaper(0);
@@ -624,19 +654,114 @@ function renderList() {
   const sum = res.summary ? `<div class="summary">${esc(res.summary)}<div class="qs">${t("Queries: ")}${res.queries.map(esc).join("; ")}</div></div>` : "";
   const list = papers.map((p, i) => ({p, i})).filter(({p}) => filter === "all" || p.findings.some(f => f.stance === filter))
     .map(({p, i}) => {
+      if (p.extra) return "";
       const st = [...new Set(p.findings.map(f => f.stance))];
       return `<div class="card" data-i="${i}">
         <div class="t">${esc(p.paper.title || p.paper.file)}</div>
-        <div class="f">${p.paper.authors ? esc(authShort(p.paper.authors)) + (p.paper.journal ? " · " + esc(p.paper.journal) : "") : esc(p.paper.file)}</div>
-        <div class="tags">${st.map(s => `<span class="tag ${s}">${SL(s)}</span>`).join("")}
-          <span class="tag folder">${esc(short(p.paper.folder))}</span>${p.paper.year ? `<span class="tag folder">${esc(p.paper.year)}</span>` : ""}
+        <div class="f">${p.paper.authors ? esc(authShort(p.paper.authors)) + (p.paper.journal ? " · " + esc(p.paper.journal) : "") + (p.paper.year ? " · " + esc(p.paper.year) : "") : esc(p.paper.file)}</div>
+        <div class="tags">${st.map(s => `<span class="tag ${s}">${SL(s)}</span>`).join("")}${isBoost(p) ? `<span class="rk star">★</span>` : ""}${p.score10 != null ? `<span class="rk" title="${t("Overall relevance: whole-paper retrieval share, the model's quote relevance (plus similarity adjusted toward the papers you marked), each scaled to 0 to 1, averaged and multiplied by 10")}">${p.score10.toFixed(1)} / 10</span>` : ""}${p.move ? `<span class="rk mv ${p.move > 0 ? "up" : "down"}">${p.move > 0 ? "↑" : "↓"}${Math.abs(p.move)}</span>` : ""}
           ${(() => { const n = marks.filter(m => m.pdf === p.paper.pdf).length; return n ? `<span class="minetag">${t("My highlights")} ${n}</span>` : ""; })()}</div>
       </div>`;
     }).join("");
-  $("#c1b").innerHTML = sum + (res.summary ? `<div class="filters">${fb}</div>` : "") + list;
+  const exList = papers.map((p, i) => ({p, i})).filter(({p}) => p.extra).map(({p, i}) => `<div class="card extra" data-i="${i}">
+        <div class="t">${esc(p.paper.title || p.paper.file)}</div>
+        <div class="f">${p.paper.authors ? esc(authShort(p.paper.authors)) + (p.paper.journal ? " · " + esc(p.paper.journal) : "") + (p.paper.year ? " · " + esc(p.paper.year) : "") : esc(p.paper.file)}</div>
+        <div class="tags"><button type="button" class="xadd" data-i="${i}">${t("Add to results")}</button></div></div>`).join("");
+  const more = res && res.claim && !res.marksView
+    ? `<div class="moreh">${exList ? t("More related papers (not screened by the model)") : ""}</div>${exList}<button type="button" id="moreBtn">${t(moreDone ? "Even more related papers" : "More related papers")}</button>` : "";
+  $("#c1b").innerHTML = sum + (res.summary ? `<div class="filters">${fb}</div>` : "") + list + more;
+  const mb = $("#moreBtn");
+  if (mb) mb.onclick = () => loadMore();
+  document.querySelectorAll(".xadd").forEach(b => b.onclick = ev => { ev.stopPropagation(); addExtra(+b.dataset.i); });
   document.querySelectorAll(".filters button").forEach(b => b.onclick = () => { filter = b.dataset.f; renderList(); });
   document.querySelectorAll(".card").forEach(c => c.onclick = () => selectPaper(+c.dataset.i));
   markSel();
+}
+const isBoost = p => (res.boosted || []).includes(p.paper.id);
+// Order and the x / 10 score come from the server (quotesight/rank.py): the mean of 0..1 scores for whole-paper retrieval,
+// the model's quote relevance and, after you mark papers, Rocchio relevance feedback.
+function sortPapers() {
+  const rk = res.rank;
+  const main = papers.filter(p => !p.extra), ex = papers.filter(p => p.extra);
+  papers.forEach(p => { p.score10 = rk && !p.extra && rk[p.paper.id] != null ? rk[p.paper.id] : null; });
+  if (rk) main.sort((a, b) => (b.score10 || 0) - (a.score10 || 0));
+  papers = [...main, ...ex];
+}
+async function refreshRank() {
+  if (!res || !res.history_id) return;
+  const old = papers.filter(p => !p.extra).map(p => p.paper.id);
+  const d = await fetch("/api/rank/" + res.history_id).then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!d || !d.rank) return;
+  res.rank = d.rank; res.paper_scores = d.paper_scores;
+  sortPapers();
+  const now = papers.filter(p => !p.extra).map(p => p.paper.id);
+  papers.forEach(p => { const a = old.indexOf(p.paper.id), b = now.indexOf(p.paper.id); p.move = a < 0 || b < 0 ? 0 : a - b; });
+  renderList();
+}
+let toastT = null, adding = false;
+function toast(msg, ms = 3500) {
+  let el = $("#toast");
+  if (!el) { el = document.createElement("div"); el.id = "toast"; document.body.appendChild(el); }
+  el.textContent = msg; el.classList.add("on");
+  clearTimeout(toastT); if (ms) toastT = setTimeout(() => el.classList.remove("on"), ms);
+}
+const curBackend = () => { const m = $("#mode").value; return m === "fast" ? "" : m.split(":")[0]; };
+async function loadMore(n = 15) {
+  const r0 = res, b = $("#moreBtn"); if (b) { b.disabled = true; b.textContent = t("searching…"); }
+  const ex = papers.map(p => p.paper.id).join(",");
+  const d = await fetch(`/api/more?q=${encodeURIComponent(res.claim)}&exclude=${ex}&n=${n}`).then(r => r.json()).catch(() => null);
+  if (r0 !== res) return;
+  moreDone = true;
+  if (d && d.findings) {
+    const by = new Map();
+    for (const f of d.findings) { if (!by.has(f.paper.id)) by.set(f.paper.id, {paper: f.paper, findings: [], extra: true}); by.get(f.paper.id).findings.push(f); }
+    papers.push(...by.values());
+  }
+  res._extra = papers.filter(x => x.extra);
+  renderList();
+}
+async function askPaper(p, per) {
+  const d = await fetch("/api/addpaper", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({claim: res.claim, paper_id: p.paper.id, hid: res.history_id || "", per, have: p.findings.map(f => cleanMd(f.quote)),
+      backend: curBackend(), lang: LANG})}).then(r => r.json()).catch(() => null);
+  if (!d || !d.ok) { toast(t("Could not add: ") + ((d && d.error) || t("no response")), 6000); return null; }
+  return d.findings;
+}
+async function addExtra(i) {
+  const p = papers[i]; if (!p || adding) return;
+  adding = true;
+  toast(t("The model is reading this paper and judging support, refute or context…"), 0);
+  const fs = await askPaper(p, 5);
+  adding = false;
+  if (!fs) return;
+  if (!fs.length) return toast(t("Read it: no directly relevant quotes, so it was not added"), 6000);
+  p.extra = false; p.findings = fs; res.findings.push(...fs); res._extra = papers.filter(x => x.extra);
+  await refreshRank();
+  selectPaper(papers.indexOf(p));
+  toast(t("Added to results: ") + fs.length + " " + t("quotes"));
+}
+// n = how many new quotes to look for; 0 lets the model decide.
+async function readMore(p, n) {
+  if (adding) return;
+  adding = true;
+  toast(t("The model is reading more quotes…"), 0);
+  const fs = await askPaper(p, n);
+  adding = false;
+  if (!fs) return;
+  const have = new Set(p.findings.map(f => f.chunk_id)), fresh = fs.filter(f => !have.has(f.chunk_id));
+  if (!fresh.length) return toast(t("No more relevant quotes in this paper"), 5000);
+  p.findings.push(...fresh); res.findings.push(...fresh);
+  await refreshRank(); selectPaper(papers.indexOf(p), false);
+  toast(t("Added") + " " + fresh.length + " " + t("quotes"));
+}
+async function toggleBoost(p) {
+  if (adding) return;
+  const on = !isBoost(p);
+  res.boosted = (res.boosted || []).filter(x => x !== p.paper.id);
+  if (on) res.boosted.push(p.paper.id);
+  if (res.history_id) await fetch(`/api/history/${res.history_id}/boost`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({paper_id: p.paper.id, on})});
+  await refreshRank(); selectPaper(papers.indexOf(p), false);
+  if (on) readMore(p, 10);
 }
 const markSel = () => document.querySelectorAll(".card").forEach(c => c.classList.toggle("sel", papers[+c.dataset.i] === curPaper));
 
@@ -649,9 +774,11 @@ function selectPaper(i, show = true) {
   $("#c2").innerHTML = `
     <h2>${esc(p.title || p.file)}</h2>
     ${p.authors ? `<div class="auth">${esc(authLong(p.authors))}</div>` : ""}
-    <div class="sub">${p.journal ? "<i>" + esc(p.journal) + "</i> · " : ""}${p.year ? esc(p.year) + " · " : ""}${p.doi ? `<a href="https://doi.org/${esc(p.doi)}" target="_blank">doi:${esc(p.doi)}</a> · ` : ""}${esc(p.file)} · ${esc(short(p.folder))}</div>
+    <div class="sub">${[p.journal ? "<i>" + esc(p.journal) + "</i>" : "", p.year ? esc(p.year) : "", p.doi ? `<a href="https://doi.org/${esc(p.doi)}" target="_blank">doi:${esc(p.doi)}</a>` : ""].filter(Boolean).join(" · ")}</div>
     <div class="actions">
       ${`<button id="syspdf">${t("Open PDF")}</button><button id="tabpdf">${t("PDF in browser")}</button>`}
+      ${curPaper.extra ? `<button id="xaddm">${t("Add to results")}</button>`
+        : `<button id="moreq">${t("Read more quotes")}</button><input id="moreqn" type="number" min="1" max="20" placeholder="${t("auto")}" title="${t("Enter how many more quotes to look for, or leave empty to let the model decide")}" style="width:58px"><button id="starbtn">${t(isBoost(curPaper) ? "★ Unmark" : "★ More important than ranked")}</button>`}
     </div>
     ${curPaper.view.map((f, k) => `
       <div class="finding ${f.stance}${f.mine ? " mine" : ""}" data-k="${k}">
@@ -663,6 +790,9 @@ function selectPaper(i, show = true) {
         ${f.note ? `<div class="note">${esc(f.note)}</div>` : ""}
       </div>`).join("")}`;
   $("#syspdf").onclick = () => fetch(`/api/open/${p.id}`, {method: "POST"});
+  if ($("#starbtn")) $("#starbtn").onclick = () => toggleBoost(curPaper);
+  if ($("#moreq")) $("#moreq").onclick = () => readMore(curPaper, $("#moreqn").value.trim() === "" ? 0 : +$("#moreqn").value);
+  if ($("#xaddm")) $("#xaddm").onclick = () => addExtra(papers.indexOf(curPaper));
   $("#tabpdf").onclick = () => window.open(`/pdf/${p.id}#page=${(curPaper.view[0] || {}).page || 1}`, "_blank");
   document.querySelectorAll(".finding").forEach(e => e.onclick = async ev => {
     const del = ev.target.closest(".mdel");
@@ -736,19 +866,22 @@ function coverSpans(divs, targets, W = 24, step = 8) {
   return divs.map((d, i) => len[i] > 0 && hit[i] / len[i] >= 0.6);
 }
 
-function exactRange(divs, quote) {
+// noDigits: fallback for accepted manuscripts, whose line numbers sit between the words of the text layer.
+// Digits are dropped on both sides, so the quote still matches across lines.
+function exactRange(divs, quote, noDigits) {
   const map = []; let str = "";
-  divs.forEach((d, i) => { const t = d.textContent; for (let k = 0; k < t.length; k++) for (const ch of norm(t[k])) { str += ch; map.push([i, k]); } });
-  const q = norm(quote);
+  divs.forEach((d, i) => { const t = d.textContent; for (let k = 0; k < t.length; k++) for (const ch of norm(t[k])) { if (noDigits && /\d/.test(ch)) continue; str += ch; map.push([i, k]); } });
+  const q = noDigits ? norm(quote).replace(/\d/g, "") : norm(quote);
   if (q.length < 12) return null;
   const at = str.indexOf(q);
   if (at < 0) return null;
   return {b: map[at], e: map[at + q.length - 1]};
 }
-function markRange(divs, r, cls) {
+function markRange(divs, r, cls, skipNum) {
   let first = null;
   for (let i = r.b[0]; i <= r.e[0]; i++) {
     const d = divs[i], t = d.textContent;
+    if (skipNum && /^\s*\d{1,3}\s*$/.test(t)) continue;
     const s0 = i === r.b[0] ? r.b[1] : 0, s1 = i === r.e[0] ? r.e[1] + 1 : t.length;
     if (s0 === 0 && s1 >= t.length) cls ? d.classList.add(...cls.split(" ")) : d.classList.add("hl2");
     else {
@@ -801,7 +934,7 @@ function relabelPdfBar() {
   showPageNo();
 }
 // ---- stance colors: color + highlight opacity per stance, saved in the browser; all cards, tags and highlights follow ----
-const COLOR_DEF = {support: ["#2ea05a", 30], refute: ["#d64834", 28], context: ["#deb428", 38]};
+const COLOR_DEF = {support: ["#2ea05a", 20], refute: ["#d66f9a", 20], context: ["#fec82f", 36]};
 const hex2rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)).join(", ");
 let colors = JSON.parse(JSON.stringify(COLOR_DEF));
 function applyColors() {
@@ -914,13 +1047,15 @@ async function drawText(n) {
   const textDivs = [];
   await pdfjsLib.renderTextLayer({textContentSource: tc, container: tl, viewport: P.vp, textDivs}).promise;
   for (const m of marks.filter(m => pdfPath && m.pdf === pdfPath && m.page === n)) {
-    const r = exactRange(textDivs, m.text);
-    if (r) markRange(textDivs, r, "mk mk-" + m.stance);
+    let r = exactRange(textDivs, m.text), fb = false;
+    if (!r) { r = exactRange(textDivs, m.text, true); fb = !!r; }
+    if (r) markRange(textDivs, r, "mk mk-" + m.stance, fb);
   }
   let first = null;
   if (target && target.page === n) for (const q of target.quotes) {
-    const r = exactRange(textDivs, q);
-    if (r) first = first || markRange(textDivs, r);
+    let r = exactRange(textDivs, q), fb = false;
+    if (!r) { r = exactRange(textDivs, q, true); fb = !!r; }
+    if (r) first = first || markRange(textDivs, r, undefined, fb);
     else coverSpans(textDivs, [q]).forEach((on, i) => { if (on) { textDivs[i].classList.add("hl2"); first = first || textDivs[i]; } });
   }
   drawBands(P);
@@ -1172,7 +1307,7 @@ document.addEventListener("mousedown", e => { if (!$("#setwrap").contains(e.targ
   apply(on);
   $("#shints").onchange = () => { apply($("#shints").checked); try { localStorage.setItem("qsHints", $("#shints").checked ? "1" : "0"); } catch (e) {} };
 }
-for (const [id, key] of [["smax", "qsMax"], ["srel", "qsMinRel"]]) {
+for (const [id, key] of [["smax", "qsMax"], ["sper", "qsPer"], ["srel", "qsMinRel"]]) {
   try { const v = localStorage.getItem(key); if (v) $("#" + id).value = v; } catch (e) {}
   $("#" + id).onchange = () => {
     try { localStorage.setItem(key, $("#" + id).value); } catch (e) {}

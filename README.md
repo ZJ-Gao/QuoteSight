@@ -28,7 +28,7 @@ https://github.com/user-attachments/assets/5e7a2aed-259a-4060-b3ab-354cf21326fa
 
 - **Start from a vague idea**: write the argument the way you would say it, and the agent turns it into a few precise searches.
 - **Spend fewer tokens**: because your library is indexed first, the agent reads only the few dozen most relevant passages instead of whole PDFs. A full search often costs fewer tokens than having the agent read one long paper.
-- **Check every quote**: QuoteSight matches each quote against the PDF text and marks any that do not match as *unverified*.
+- **Check every quote**: QuoteSight matches each quote against the PDF text. A quote it cannot find anywhere is dropped, and a close but imperfect match is marked *unverified*.
 - **Keep your files local**: the index stays on your computer, and your PDFs are only read, never changed. Only precise search sends your argument and the selected passages to Anthropic or OpenAI.
 - **Simple setup**: run one installer, answer four questions, then double-click *Start*.
 
@@ -100,18 +100,37 @@ Prefer not to use the terminal yourself? Open Claude Code or Codex in the QuoteS
 
 ### The board
 
-Double-click *Start* (or run `quotesight-app`), type a claim or a topic, and press Enter.
-
-- **Left**: a short summary, then the papers, filterable by *supports*, *refutes* or *context*.
-- **Middle**: the quotes from the selected paper, each with a one-line note, plus buttons to open the PDF in your PDF reader or in the browser.
-- **Right**: the PDF page with the quote highlighted.
-- **Top bar**: the model and effort, the tokens this search used, and how much of your 5-hour and 7-day usage is left (Claude only).
+Double-click *Start* (or run `quotesight-app`), type a claim or a topic, and press Enter. The board has three columns: the papers on the left, the quotes of the selected paper in the middle, and the PDF page with the quote highlighted on the right. The top bar shows the model and the tokens this search used. With Claude, it also shows how much of your 5-hour and 7-day usage is left.
 
 Choose the search mode at the top:
-- **Claude** or **Codex**: precise, with about 30 seconds and 25,000 to 46,000 tokens per search.
-- **Quick**: no agent, about one to two seconds and no tokens. Instead of agent quotes, the embedding model marks the most relevant sentences.
+- **Claude** or **Codex**: precise, about one to two minutes per search.
+- **Quick**: no agent, one to two seconds and no tokens. The embedding model marks the most relevant sentences instead of the agent.
 
-The menu at the top left sets the theme: System, Light or Dark. Drag the dividers to resize the columns. **EN / 中英** switches the language: in 中英 mode the interface, notes and summaries are in Chinese, and the quotes stay in the original English. **History** (top left, collapsed) reopens earlier searches without using tokens. **Update index** brings the index up to date with your PDF folder (new, changed and deleted PDFs).
+### Find the evidence for an argument
+
+Type the argument as you would say it, for example "zircon morphology records transport distance". The agent searches your library from several angles. If the first round finds fewer papers than your limit, it runs a second round with new wording and then stops. It does not pad the list. If only twelve papers bear on the argument, you get twelve.
+
+Each paper on the left shows how its quotes bear on your argument (*supports*, *refutes* or *context*), together with a relevance score out of 10. The score averages how well the whole paper matches your argument and how relevant the agent judged its quotes (see Score and ranking under How it works). Click a paper to read its quotes in the middle, and click a quote to see it highlighted on the PDF. Every quote is checked against the original text. A quote that cannot be found there is removed, and a close but imperfect match is marked *unverified*.
+
+<img src="Assets/pdf-highlight-example.png" width="900" alt="A quote in the middle column and its yellow context highlight on the PDF page, with the supports, refutes and context bar above the PDF">
+
+### When a paper you expected is missing, or too low
+
+- **More related papers** (bottom of the left column) lists the next papers in the search ranking and uses no tokens. Choose **Add to results** on one and the agent reads the whole paper, picks its relevant quotes and labels each as supports, refutes or context. Papers added this way stay in that search's history.
+- **Read more quotes** (middle column) asks the agent for more quotes from the open paper. Enter a number, or leave it empty and the agent decides how many.
+- **★ More important than ranked** tells the board that this paper matters more than its position suggests. The agent reads more quotes from it and the ranking is recalculated. Papers similar to the ones you marked move up, and a green or red arrow on each card shows how far it moved. Marking a paper never puts it on top by itself.
+
+### Mark your own highlights
+
+Select text on the PDF page, then click *supports*, *refutes* or *context* in the bar above the PDF (or in the menu at the selection). The highlight is saved in that color, so you can mark passages by how they bear on your argument and find them again later. With nothing selected, click a color to change that color and its opacity. Highlights also work on accepted manuscripts, where line numbers run through the text.
+
+### Settings and history
+
+The gear (top left) opens the settings panel.
+
+<img src="Assets/settings-panel.png" width="260" alt="The settings panel: theme, language, max papers, max quotes per paper, min relevance, shortcut hints and update index">
+
+**Max papers** and **Max quotes per paper** limit how many papers a search returns and how many quotes each paper shows. **Min relevance** hides quotes below the level you choose, with no new search. **Language** switches between English and 中英: in 中英 mode the interface, notes and summaries are in Chinese, and the quotes stay in the original English. **Update index** brings the index up to date with your PDF folder. **History** (top left) reopens earlier searches without using tokens, and each one keeps the limits it was run with. Drag the dividers to resize the columns.
 
 ### From the command line
 
@@ -144,8 +163,10 @@ At the end of setup, QuoteSight prints a short instruction with the full path to
 3. **Two indexes**: a keyword index (SQLite FTS5, BM25 ranking) for exact names and terms, and a semantic index of [nomic-embed-text-v1.5](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5) vectors for passages that say the same thing in other words. The embedding model runs on your computer: on Apple silicon, an NVIDIA card or the processor.
 4. **Search**: a query runs through both indexes, and the two rankings are merged by reciprocal rank fusion. The percentage next to a paper is its share of the scores in that result list. It is useful for comparing papers but is not a probability.
 5. **Titles and authors**: QuoteSight takes a DOI from the first two pages, looks it up on [Crossref](https://www.crossref.org/) and uses the record only if its title appears in the PDF. Otherwise it falls back on the file name.
-6. **Precise search**: your coding agent turns the input into two to four specific queries, and QuoteSight runs them and hands the agent about 30 passages. The agent returns verbatim quotes, each with a stance and a note. QuoteSight then checks every quote against its passage and marks any that do not match as *unverified*. The agent receives only text and has no tools or file access. The prompts are plain Markdown in `quotesight/prompts/`, so you can adapt them to your field.
-7. **Highlight**: [pdf.js](https://mozilla.github.io/pdf.js/) renders the page's text layer, and the quote is matched in it character by character, so the highlight can start and end partway through a line. In some older PDFs, the font encoding garbles the text layer, and the board then reports that it cannot highlight the page.
+6. **Precise search**: your coding agent turns the input into two to four specific queries. QuoteSight searches with these queries and with your original wording, adds the best passage of every paper that ranks high for the whole input, and passes all of these passages to the agent. The agent returns verbatim quotes, each with a stance, a relevance and a note. If the quotes cover fewer papers than your limit, the agent writes a few new queries from a different angle and QuoteSight runs one more round with them. The agent receives only text and has no tools or file access. The prompts are plain Markdown in `quotesight/prompts/`, so you can adapt them to your field.
+7. **Checking**: QuoteSight compares every quote with its passage, allowing for footnotes or column breaks that text extraction puts inside a sentence. A quote the agent attached to the wrong passage is looked up in the library and moved to the right one. A quote that exists nowhere is dropped, and a close but imperfect match is marked *unverified*.
+8. **Score and ranking**: each paper gets up to three scores between 0 and 1, and its relevance out of 10 is their mean times 10. The first score is how well the whole paper matches the input and every query, and the second is how relevant the agent judged its quotes. The third appears once you mark papers and is a similarity adjusted toward the papers you marked (Rocchio relevance feedback). The adjustment leaves out a paper's own quotes, so marking cannot lift it by itself. The combination is computed on your computer from the index and uses no tokens.
+9. **Highlight**: [pdf.js](https://mozilla.github.io/pdf.js/) renders the page's text layer, and the board matches the quote in it character by character, which lets the highlight start and end partway through a line. Accepted manuscripts put a line number between the words of the text layer. When the first match fails, the board matches again with digits ignored. In some older PDFs, the font encoding garbles the text layer, and the board then reports that it cannot highlight the page.
 
 ## Settings
 
@@ -167,7 +188,7 @@ Measured on an Apple silicon MacBook with 565 PDFs (4.8 GB):
 | Embedding (first run) | about 48 minutes; afterwards seconds per new PDF |
 | Index on disk | about 160 MB for about 31,000 passages |
 | Search | under 0.1 seconds on the board; Quick mode about 1 to 2 seconds with sentence marking; about 6 seconds from the command line, mostly loading the model |
-| Precise search | about 30 seconds; about 27,000 tokens with Claude Sonnet, about 46,000 with Codex |
+| Precise search | about one to two minutes |
 
 ## Data and privacy
 
