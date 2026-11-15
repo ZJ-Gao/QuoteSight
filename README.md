@@ -118,7 +118,7 @@ Each paper on the left shows how its quotes bear on your argument (*supports*, *
 
 - **More related papers** (bottom of the left column) lists the next papers in the search ranking and uses no tokens. Choose **Add to results** on one and the agent reads the whole paper, picks its relevant quotes and labels each as supports, refutes or context. Papers added this way stay in that search's history.
 - **Read more quotes** (middle column) asks the agent for more quotes from the open paper. Enter a number, or leave it empty and the agent decides how many.
-- **★ More important than ranked** tells the board that this paper matters more than its position suggests. The agent reads more quotes from it and the ranking is recalculated. Papers similar to the ones you marked move up, and a green or red arrow on each card shows how far it moved. Marking a paper never puts it on top by itself.
+- **★ More relevant**: click it when a paper is more relevant than its place suggests. The agent reads more quotes from it, then the ranking is recalculated. Papers similar to it move up, and a green or red arrow on each card shows how many places it moved. The paper's own place depends on how relevant its new quotes are, so the mark does not put it first by itself.
 
 ### Mark your own highlights
 

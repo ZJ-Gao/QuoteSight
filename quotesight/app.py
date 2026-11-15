@@ -235,6 +235,8 @@ def api_history_get(hid: str):
         with lock:
             llm.repair_findings(d)
         llm.rewrite_history(dict(d, history_id=hid))
+    if llm.clean_findings(d.get("findings", [])):
+        llm.rewrite_history(dict(d, history_id=hid))
     for f in d.get("findings", []):
         if f.get("passage"):
             f["verified"] = llm.verify(f["quote"], f["passage"])

@@ -480,7 +480,7 @@ def search(query, limit=10, by_paper=False, folder=None, include_refs=False, per
     def passage(cid, e):
         r = rows[cid]
         return {"chunk_id": cid, "page": r["page"], "score": round(e["rrf"] * 1000, 2), "found_by": e["found_by"],
-                "similarity": e["sim"], "bm25": e["bm25"], "passage": r["text"],
+                "similarity": e["sim"], "bm25": e["bm25"], "passage": strip_line_numbers(r["text"]) if paper_numbered(r["pid"]) else r["text"],
                 "highlighted": highlight(r["text"], terms)}
 
     if not by_paper:
@@ -540,6 +540,68 @@ def key_sentences(query, chunk_ids):
         if not any(x["key"] for x in lst):
             lst[ranked[0]]["key"] = True
     return out
+
+
+
+# Accepted manuscripts print a line number in the margin, and text extraction puts it between the words ("As 390 zircon
+# ages get younger ... 391 and magmatic rocks"). Margin numbers form runs that grow by 1; ordinary numbers do not.
+_NUM_ANY = re.compile(r"(?<!\S)\d{1,4}(?!\S)")
+_NUM = re.compile(r"(?<!\S)\d{1,4}(?=\s+[A-Za-z(\[*{\"\u201c])")  # followed by text, not by a dash as in "1 - from ..."
+
+
+def line_number_chains(text):
+    chains = []
+    for m in _NUM.finditer(text or ""):
+        v = int(m.group())
+        for c in reversed(chains):
+            if c[-1][1] + 1 == v and m.start() - c[-1][0] >= 30:  # a margin number sits a text line after the last
+                c.append((m.start(), v))
+                break
+        else:
+            chains.append([(m.start(), v)])
+    out = []
+    for c in chains:
+        if len(c) < 4:
+            continue
+        gaps = sorted(b[0] - a[0] for a, b in zip(c, c[1:]))
+        med = gaps[len(gaps) // 2]
+        # margin numbers are one text line apart, so their gaps are alike; a numbered list has uneven gaps
+        if sum(0.6 * med <= g <= 1.6 * med for g in gaps) >= 0.75 * len(gaps):
+            out.append(c)
+    return out
+
+
+def strip_line_numbers(text):
+    """The passage without its margin line numbers (a passage that has none is returned unchanged)."""
+    spans = sorted((p, p + len(str(v))) for c in line_number_chains(text) for p, v in c)
+    if not spans:
+        return text
+    out, last = [], 0
+    for a, b in spans:
+        out.append(text[last:a])
+        last = b
+    out.append(text[last:])
+    return re.sub(r"[ \t]{2,}", " ", "".join(out))
+
+
+def strip_quote_numbers(quote, passage):
+    """The quote without the margin line numbers found in its passage."""
+    vals = {v for c in line_number_chains(passage) for _, v in c}
+    if not vals:
+        return quote
+    return re.sub(r"[ \t]{2,}", " ", _NUM_ANY.sub(lambda m: "" if int(m.group()) in vals else m.group(), quote))
+
+
+_numbered = {}
+
+
+def paper_numbered(pid):
+    """True if the paper is a manuscript with margin line numbers: they run through many of its passages. A numbered
+    list in one passage of an ordinary paper does not count."""
+    if pid not in _numbered:
+        rows = connect().execute("SELECT text FROM chunks WHERE paper_id=? AND is_ref=0", (pid,)).fetchall()
+        _numbered[pid] = bool(rows) and sum(1 for r in rows if line_number_chains(r[0])) >= 0.2 * len(rows)
+    return _numbered[pid]
 
 
 def stats():

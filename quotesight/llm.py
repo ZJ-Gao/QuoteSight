@@ -198,7 +198,8 @@ def _norm(s):
 
 
 def verify(quote, text):
-    """True if the quote appears in the passage, ignoring spacing, punctuation and citation numbers."""
+    """True if the quote appears in the passage, ignoring spacing, punctuation, citation numbers and margin line numbers."""
+    quote, text = core.strip_quote_numbers(quote, text), core.strip_line_numbers(text)
     return (_match(quote, text) or _match(strip_cites(quote), strip_cites(text))
             or cover(strip_cites(quote), strip_cites(text)) >= 0.8)
 
@@ -332,6 +333,7 @@ def run(text, backend=None, on_event=None, language=None, max_findings=20, depth
                              "note": f.get("note", ""), "relevance": f.get("relevance", "medium"),
                              "verified": verify(f["quote"], row["text"]),
                              "passage": row["text"], "paper": core.paper_info(row)})
+    clean_findings(findings)
     kept, cnt = [], {}
     for f in findings:
         pid = f["paper"]["id"]
@@ -439,6 +441,7 @@ def repair_findings(res):
             continue
         seen.add(f["chunk_id"])
         out.append(f)
+    clean_findings(out)
     res["findings"] = out
 
 
@@ -498,4 +501,16 @@ def read_paper(claim, paper_id, backend=None, language=None, per_paper=5, have=(
                              "note": f.get("note", ""), "relevance": f.get("relevance", "medium"),
                              "verified": verify(f["quote"], row["text"]), "passage": row["text"], "added": True,
                              "paper": core.paper_info(row)})
+    clean_findings(findings)
     return {"ok": True, "findings": findings, "tokens": usage.total()}
+
+def clean_findings(findings):
+    """Drop margin line numbers from each quote and passage. Returns True if anything changed."""
+    changed = False
+    for f in findings:
+        if not f.get("passage") or not core.paper_numbered(f["paper"]["id"]):
+            continue
+        q, p = core.strip_quote_numbers(f["quote"], f["passage"]), core.strip_line_numbers(f["passage"])
+        if q != f["quote"] or p != f["passage"]:
+            f["quote"], f["passage"], changed = q, p, True
+    return changed
